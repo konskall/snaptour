@@ -288,7 +288,7 @@ const App: React.FC = () => {
              <AlertTriangle size={18} className="fill-white text-red-600" />
              <span className="text-sm font-bold">
                Setup Required: Missing {missingCreds.join(" & ")}. 
-               Check GitHub Settings -> Secrets.
+               Check GitHub Settings &rarr; Secrets.
              </span>
            </div>
            <button onClick={() => setMissingCreds([])} className="text-xs bg-red-800 hover:bg-red-700 px-2 py-1 rounded">
