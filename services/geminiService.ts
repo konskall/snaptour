@@ -22,6 +22,7 @@ const getAI = () => {
 let decodingContext: AudioContext | null = null;
 const getDecodingContext = () => {
   if (!decodingContext) {
+    // Use a standard sample rate, though decodeAudioData usually handles resampling
     decodingContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
   }
   return decodingContext;
@@ -118,10 +119,11 @@ export async function generateNarrationAudio(text: string): Promise<AudioBuffer 
     // Use shared context for decoding to avoid memory leaks/limits
     const audioContext = getDecodingContext();
     
-    // Ensure context is running (sometimes browsers suspend it)
-    if (audioContext.state === 'suspended') {
-      await audioContext.resume();
-    }
+    // NOTE: We do NOT call audioContext.resume() here. 
+    // Browsers block resume() if not triggered by a user gesture (click).
+    // Calling it here would hang the promise indefinitely.
+    // The AudioBuffer can be decoded even if the context is suspended.
+    // The context will be resumed in TourCard.tsx when the user clicks "Play".
 
     const audioBuffer = await decodeAudioData(
       decodeBase64(base64Audio),
