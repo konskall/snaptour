@@ -18,6 +18,15 @@ const getAI = () => {
   return aiInstance;
 };
 
+// Singleton AudioContext for decoding to prevent "Max AudioContexts" error
+let decodingContext: AudioContext | null = null;
+const getDecodingContext = () => {
+  if (!decodingContext) {
+    decodingContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+  }
+  return decodingContext;
+};
+
 // 1. Identify the landmark using gemini-2.5-flash (Faster Vision) with JSON Schema
 export async function identifyLandmarkFromImage(base64Image: string, mimeType: string, language: string): Promise<LandmarkIdentification> {
   try {
@@ -102,7 +111,14 @@ export async function generateNarrationAudio(text: string): Promise<AudioBuffer 
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) return null;
 
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+    // Use shared context for decoding to avoid memory leaks/limits
+    const audioContext = getDecodingContext();
+    
+    // Ensure context is running (sometimes browsers suspend it)
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume();
+    }
+
     const audioBuffer = await decodeAudioData(
       decodeBase64(base64Audio),
       audioContext,
