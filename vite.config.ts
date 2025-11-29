@@ -10,8 +10,8 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     // This defines process.env variables so they work in the browser environment
     define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY),
-      'process.env.GOOGLE_CLIENT_ID': JSON.stringify(env.GOOGLE_CLIENT_ID)
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || ""),
+      'process.env.GOOGLE_CLIENT_ID': JSON.stringify(env.GOOGLE_CLIENT_ID || "")
     },
     // Use relative base path for correct asset loading on GitHub Pages
     base: './', 
