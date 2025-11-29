@@ -49,6 +49,21 @@ const App: React.FC = () => {
     setMissingCreds(missing);
   }, []);
 
+  // Check for saved user session on mount
+  useEffect(() => {
+    const storedUser = localStorage.getItem('snaptour_user_session');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        setUserHistory(getHistory(parsedUser.email));
+      } catch (e) {
+        console.error("Failed to restore session", e);
+        localStorage.removeItem('snaptour_user_session');
+      }
+    }
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (langMenuRef.current && !langMenuRef.current.contains(event.target as Node)) {
@@ -76,6 +91,7 @@ const App: React.FC = () => {
          accessToken: "mock_token_123"
        };
        setUser(mockUser);
+       localStorage.setItem('snaptour_user_session', JSON.stringify(mockUser)); // Save session
        setUserHistory(getHistory(mockUser.email));
     };
 
@@ -96,12 +112,14 @@ const App: React.FC = () => {
                 headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
               });
               const userInfo = await userInfoRes.json();
-              setUser({
+              const newUser = {
                 name: userInfo.name,
                 email: userInfo.email,
                 picture: userInfo.picture,
                 accessToken: tokenResponse.access_token
-              });
+              };
+              setUser(newUser);
+              localStorage.setItem('snaptour_user_session', JSON.stringify(newUser)); // Save session
               setUserHistory(getHistory(userInfo.email));
             } catch (error) {
               console.error("Failed to fetch user info", error);
@@ -123,6 +141,7 @@ const App: React.FC = () => {
         console.log('Consent revoked');
       });
     }
+    localStorage.removeItem('snaptour_user_session'); // Clear session
     setUser(null);
     setUserHistory([]);
     setIsUserMenuOpen(false);
