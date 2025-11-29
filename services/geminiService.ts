@@ -1,4 +1,4 @@
-import { GoogleGenAI, Modality, Type } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { decodeBase64, decodeAudioData } from "./audioUtils";
 import { GroundingChunk, LandmarkIdentification, ChatMessage, NearbyPlace } from "../types";
 
@@ -99,7 +99,8 @@ export async function generateNarrationAudio(text: string): Promise<AudioBuffer 
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text: text }] }],
       config: {
-        responseModalities: [Modality.AUDIO],
+        // Use string literal 'AUDIO' instead of Modality.AUDIO to avoid Vite bundling issues
+        responseModalities: ['AUDIO'],
         speechConfig: {
           voiceConfig: {
             prebuiltVoiceConfig: { voiceName: 'Kore' },
@@ -109,7 +110,10 @@ export async function generateNarrationAudio(text: string): Promise<AudioBuffer 
     });
 
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) return null;
+    if (!base64Audio) {
+        console.warn("No audio data returned from API");
+        return null;
+    }
 
     // Use shared context for decoding to avoid memory leaks/limits
     const audioContext = getDecodingContext();
