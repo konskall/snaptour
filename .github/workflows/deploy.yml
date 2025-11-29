@@ -25,15 +25,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: 'npm'
+          # Cache removed because package-lock.json might be missing on manual upload
 
       - name: Install dependencies
+        # 'npm install' generates the lockfile if missing, unlike 'npm ci'
         run: npm install
 
       - name: Build
         run: npm run build
         env:
-          # Τα Secrets που ρυθμίσατε στο GitHub
           API_KEY: ${{ secrets.API_KEY }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
 
