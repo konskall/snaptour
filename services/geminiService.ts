@@ -28,74 +28,107 @@ const getDecodingContext = () => {
   return decodingContext;
 };
 
-// 1. Identify the landmark using gemini-2.5-flash (Faster Vision) with JSON Schema
-export async function identifyLandmarkFromImage(base64Image: string, mimeType: string, language: string): Promise<LandmarkIdentification> {
+// Retry helper for 429 errors
+async function retryOperation<T>(operation: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
   try {
-    const response = await getAI().models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              data: base64Image,
-              mimeType: mimeType,
-            },
-          },
-          {
-            text: `Identify this landmark. Return a JSON object with the name of the landmark (including city/country), a confidence score between 0.0 and 1.0 (where 1.0 is absolute certainty), and a list of up to 3 alternative landmark names if there is any ambiguity. If confident, alternatives can be empty. Translate all names to ${language}.`,
-          },
-        ],
-      },
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            confidence: { type: Type.NUMBER, description: "A score between 0.0 and 1.0 indicating certainty" },
-            alternatives: { type: Type.ARRAY, items: { type: Type.STRING } }
-          },
-          required: ['name', 'confidence', 'alternatives']
-        }
-      }
-    });
-
-    const text = response.text;
-    if (!text) throw new Error("Could not identify landmark");
-    
-    // Parse JSON response
-    const data = JSON.parse(text) as LandmarkIdentification;
-    return data;
-  } catch (error) {
-    console.error("Error identifying landmark:", error);
+    return await operation();
+  } catch (error: any) {
+    if (retries > 0 && (error.status === 429 || error.message?.includes('429') || error.message?.includes('quota'))) {
+      console.warn(`Rate limit hit. Retrying in ${delay}ms... (${retries} retries left)`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return retryOperation(operation, retries - 1, delay * 2);
+    }
     throw error;
   }
 }
 
+// 1. Identify the landmark using gemini-2.5-flash with Google Search Grounding for ACCURACY
+export async function identifyLandmarkFromImage(base64Image: string, mimeType: string, language: string): Promise<LandmarkIdentification> {
+  return retryOperation(async () => {
+    try {
+      const response = await getAI().models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: {
+          parts: [
+            {
+              inlineData: {
+                data: base64Image,
+                mimeType: mimeType,
+              },
+            },
+            {
+              text: `Identify this landmark precisely using Google Search to verify visual features. 
+              Look for specific architectural details, signage, or unique characteristics to ensure accuracy.
+              
+              Return a STRICT JSON object (do not use Markdown code blocks) with the following structure:
+              {
+                "name": "Name of the landmark (City, Country)",
+                "confidence": 0.0 to 1.0,
+                "alternatives": ["Alternative Name 1", "Alternative Name 2"]
+              }
+              
+              If the image is not a landmark, set confidence to 0.
+              Translate the names to ${language}.`,
+            },
+          ],
+        },
+        config: {
+          // We enable Google Search for higher accuracy
+          tools: [{ googleSearch: {} }],
+          // responseMimeType cannot be 'application/json' when using tools in some versions, so we parse manually
+        }
+      });
+
+      const text = response.text;
+      if (!text) throw new Error("Could not identify landmark");
+      
+      // Clean up the response to ensure we get valid JSON
+      // Sometimes the model wraps JSON in ```json ... ``` or adds text before/after
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      
+      if (jsonMatch) {
+        const data = JSON.parse(jsonMatch[0]) as LandmarkIdentification;
+        return data;
+      } else {
+        throw new Error("Invalid response format from AI");
+      }
+
+    } catch (error) {
+      console.error("Error identifying landmark:", error);
+      throw error;
+    }
+  });
+}
+
 // 2. Get detailed history using gemini-2.5-flash with Google Search (Search Grounding)
 export async function getLandmarkDetails(landmarkName: string, language: string): Promise<{ text: string; sources: GroundingChunk[] }> {
-  try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `Tell me the history and 3 interesting hidden facts about ${landmarkName} in ${language}. Keep the tone engaging, like a passionate tour guide. Limit to 150 words.`,
-      config: {
-        tools: [{ googleSearch: {} }],
-      },
-    });
+  return retryOperation(async () => {
+    try {
+      const response = await getAI().models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `Tell me the history and 3 interesting hidden facts about ${landmarkName} in ${language}. Keep the tone engaging, like a passionate tour guide. Limit to 150 words.`,
+        config: {
+          tools: [{ googleSearch: {} }],
+        },
+      });
 
-    const text = response.text || "No details available.";
-    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks as GroundingChunk[] || [];
+      const text = response.text || "No details available.";
+      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks as GroundingChunk[] || [];
 
-    return { text, sources: chunks };
-  } catch (error) {
-    console.error("Error fetching details:", error);
-    throw error;
-  }
+      return { text, sources: chunks };
+    } catch (error) {
+      console.error("Error fetching details:", error);
+      throw error;
+    }
+  });
 }
 
 // 3. Generate speech using gemini-2.5-flash-preview-tts (TTS)
 export async function generateNarrationAudio(text: string): Promise<AudioBuffer | null> {
   try {
+    // We do NOT wrap this in retryOperation because audio failures are often due to payload size issues
+    // or strict quota limits on the preview model, which retries won't fix immediately.
+    
     const response = await getAI().models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text: text }] }],
@@ -133,7 +166,19 @@ export async function generateNarrationAudio(text: string): Promise<AudioBuffer 
     );
 
     return audioBuffer;
-  } catch (error) {
+  } catch (error: any) {
+    // Specifically handle the "SyntaxError: JSON Parse error" / "Error when deserializing response data"
+    // which happens when the binary payload breaks the SDK's internal parser or backend fails.
+    if (error.message && (
+        error.message.includes("deserializing") || 
+        error.message.includes("SyntaxError") || 
+        error.message.includes("JSON Parse error") ||
+        error.code === 500
+    )) {
+        console.warn("Audio generation failed due to SDK deserialization error (likely binary size). Skipping audio.");
+        return null; // Return null gracefully so UI shows "Audio Unavailable" icon
+    }
+
     console.error("Error generating audio:", error);
     return null;
   }
