@@ -302,8 +302,8 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, t, 
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-4 pb-8 sm:pb-4 border-t border-slate-800 bg-slate-900/50 backdrop-blur-sm flex gap-3 shrink-0">
+        {/* Footer Actions - Added Safe Area Padding */}
+        <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-slate-800 bg-slate-900/50 backdrop-blur-sm flex gap-3 shrink-0">
            <button onClick={handleShare} className="flex-1 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition-colors flex items-center justify-center gap-2 border border-slate-700">
             {justShared ? <Check size={18} className="text-green-400" /> : <Share2 size={18} />}
             <span>{justShared ? t.shareSuccess : t.share}</span>
