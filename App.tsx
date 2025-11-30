@@ -340,18 +340,26 @@ const App: React.FC = () => {
     setIsLangMenuOpen(false);
   };
 
-  const backgroundStyle = selectedImage ? {
-    backgroundImage: `url(${selectedImage})`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-  } : {};
-
   // Find current language object
   const currentLang = LANGUAGES.find(l => l.code === langCode);
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-slate-900 text-white" style={backgroundStyle}>
-      {selectedImage && <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-all duration-1000" />}
+    // Fixed root container to prevent body scrolling/rubber-banding on mobile
+    <div className="fixed inset-0 w-full h-[100dvh] overflow-hidden bg-slate-900 text-white">
+      
+      {/* Background Layer - Independent of content scrolling */}
+      {selectedImage && (
+        <div 
+          className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-1000"
+          style={{ 
+            backgroundImage: `url(${selectedImage})`,
+            backgroundPosition: 'center',
+            backgroundSize: 'cover' 
+          }}
+        >
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+        </div>
+      )}
 
       {/* In-App Browser Warning Banner */}
       {isInAppBrowser && (
@@ -378,7 +386,8 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <div className={`absolute ${isInAppBrowser ? 'top-16' : missingCreds.length > 0 ? 'top-10' : 'top-0'} left-0 right-0 p-6 z-40 flex items-center justify-between pointer-events-none transition-all`}>
+      {/* Header - Fixed Layer z-55 */}
+      <div className={`fixed ${isInAppBrowser ? 'top-16' : missingCreds.length > 0 ? 'top-10' : 'top-0'} left-0 right-0 p-6 z-[55] flex items-center justify-between pointer-events-none transition-all`}>
         {/* Brand */}
         <div 
           onClick={resetApp}
