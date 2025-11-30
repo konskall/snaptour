@@ -1,13 +1,14 @@
 import React from 'react';
 import { Translation } from '../types';
-import { Scan, Loader2 } from 'lucide-react';
+import { Scan, Loader2, MapPin } from 'lucide-react';
 
 interface ScanningViewProps {
   imageSrc: string | null;
   t: Translation;
+  hasGps?: boolean;
 }
 
-export const ScanningView: React.FC<ScanningViewProps> = ({ imageSrc, t }) => {
+export const ScanningView: React.FC<ScanningViewProps> = ({ imageSrc, t, hasGps }) => {
   return (
     <div className="flex flex-col items-center justify-center w-full h-full p-6 animate-fade-in relative z-20">
       <div className="relative max-w-sm w-full aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl border border-slate-700/50 bg-slate-900">
@@ -44,6 +45,14 @@ export const ScanningView: React.FC<ScanningViewProps> = ({ imageSrc, t }) => {
            </div>
            <h3 className="text-xl font-bold text-white mb-1">{t.analyzing}</h3>
            <p className="text-sm text-indigo-300 animate-pulse">{t.identifying_sub}</p>
+           
+           {/* Show GPS indicator if location was found */}
+           {hasGps && (
+             <div className="mt-3 inline-flex items-center gap-1 bg-emerald-500/20 px-2 py-1 rounded-full border border-emerald-500/30">
+               <MapPin size={10} className="text-emerald-400" />
+               <span className="text-[10px] font-medium text-emerald-300">Location Found</span>
+             </div>
+           )}
         </div>
       </div>
     </div>
