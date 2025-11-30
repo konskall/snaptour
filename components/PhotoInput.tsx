@@ -17,7 +17,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full p-6 pt-24 animate-fade-in">
+    <div className="flex flex-col items-center justify-center w-full h-full p-6 pt-32 animate-fade-in">
       
       {/* Background Image Layer - Fixed to ensure full coverage on all devices */}
       <div className="fixed inset-0 z-0 w-full h-full">
@@ -89,7 +89,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
       </div>
 
       {/* Footer / Credits / Disclaimer */}
-      <div className="relative z-20 text-center space-y-1 p-4 pointer-events-auto mt-4 sm:mt-8">
+      <div className="relative z-20 text-center space-y-1 p-4 pointer-events-auto mt-10 sm:mt-16">
         <p className="text-[10px] sm:text-xs text-slate-400/60 mx-auto">
            {t.disclaimer}
         </p>
