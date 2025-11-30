@@ -132,7 +132,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, t, 
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center p-0 sm:p-6 pointer-events-none">
+    <div className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center pt-28 px-0 pb-0 sm:p-6 pointer-events-none">
       {/* Overlay Background Gradient */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none" />
 
