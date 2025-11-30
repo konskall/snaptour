@@ -63,7 +63,8 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center pointer-events-none p-0 sm:p-6">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" onClick={onClose} />
       
-      <div className="relative pointer-events-auto w-full max-w-md bg-slate-900 border-t sm:border border-slate-700 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col h-[85dvh] sm:h-[600px] animate-slide-up">
+      {/* Use 100dvh for full mobile height, slightly shorter on desktop */}
+      <div className="relative pointer-events-auto w-full max-w-md bg-slate-900 border-t sm:border border-slate-700 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col h-[100dvh] sm:h-[600px] animate-slide-up">
         
         {/* Header */}
         <div className="p-4 border-b border-slate-700 flex items-center justify-between bg-slate-800/50 rounded-t-3xl shrink-0">
@@ -73,7 +74,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
             </div>
             <div>
               <h3 className="font-bold text-white">{t.chatTitle}</h3>
-              <p className="text-xs text-indigo-300">{landmarkName}</p>
+              <p className="text-xs text-indigo-300 line-clamp-1">{landmarkName}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-700 rounded-full text-slate-400">
@@ -105,8 +106,8 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
           )}
         </div>
 
-        {/* Input */}
-        <div className="p-4 pb-8 sm:pb-4 border-t border-slate-700 bg-slate-800/50 shrink-0">
+        {/* Input - Added Safe Area padding and forced font size */}
+        <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-slate-700 bg-slate-800/50 shrink-0">
           <div className="flex gap-2">
             <input
               type="text"
@@ -114,6 +115,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder={t.chatPlaceholder}
+              style={{ fontSize: '16px' }} // CRITICAL: Force 16px to prevent iOS Safari auto-zoom
               className="flex-1 bg-slate-900 border border-slate-600 rounded-full px-4 py-3 text-base text-white focus:outline-none focus:border-indigo-500"
             />
             <button 
