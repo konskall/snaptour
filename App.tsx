@@ -31,6 +31,7 @@ const App: React.FC = () => {
   const [isAudioUnavailable, setIsAudioUnavailable] = useState(false);
   const [missingCreds, setMissingCreds] = useState<string[]>([]);
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
+  const [gpsLocation, setGpsLocation] = useState<{lat: number, lng: number} | null>(null);
   
   // User & History State
   const [user, setUser] = useState<User | null>(null);
@@ -127,18 +128,10 @@ const App: React.FC = () => {
 
     // 2. Client ID exists, so we EXPECT Google Login to work.
     // If window.google is missing, it's a network/browser loading issue or blocked by In-App Browser.
-    // We should NOT fallback to mock login here, as it confuses users (logging them in as Guest).
+    // We do NOT show an alert for Instagram anymore to avoid false positives/annoyance.
     if (!window.google) {
         console.error("Google Sign-In script not loaded yet.");
-        
-        // Check if we are in Instagram (which works but might be slow)
-        const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
-        const isInstagram = /(Instagram)/i.test(ua);
-
-        // Only show alert if it's NOT LinkedIn (Banner) AND NOT Instagram (Slow but working)
-        if (!isInAppBrowser && !isInstagram) {
-           alert("Google Sign-In is still initializing or blocked. Please refresh the page.");
-        }
+        // Silent return. If user clicks again later, it might be loaded.
         return;
     }
 
@@ -171,7 +164,7 @@ const App: React.FC = () => {
       client.requestAccessToken();
     } catch (err) {
       console.error("Google Login Error:", err);
-      // Only fallback if there's a hard crash in the library, though alert is better
+      // Only fallback if there's a hard crash in the library
       alert("An error occurred starting Google Sign-In. Please try again.");
     }
     setIsUserMenuOpen(false);
@@ -243,10 +236,24 @@ const App: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
+  // Callback to receive GPS location from PhotoInput
+  const handleLocationFound = (coords: {lat: number, lng: number}) => {
+    console.log("App received GPS:", coords);
+    setGpsLocation(coords);
+  };
+
   const processTour = async (base64Image: string, mimeType: string, fullImageData: string) => {
     try {
       setState(AppState.ANALYZING_IMAGE);
-      const idResult = await identifyLandmarkFromImage(base64Image, mimeType, currentLangName);
+      
+      // Pass the GPS location (if found) to the Gemini service
+      const idResult = await identifyLandmarkFromImage(
+        base64Image, 
+        mimeType, 
+        currentLangName,
+        gpsLocation // Pass coordinates here
+      );
+      
       setIdentificationResult(idResult);
       const CONFIDENCE_THRESHOLD = 0.8;
       if (idResult.confidence >= CONFIDENCE_THRESHOLD) {
@@ -333,6 +340,7 @@ const App: React.FC = () => {
     setErrorMsg('');
     setIsGeneratingAudio(false);
     setIsAudioUnavailable(false);
+    setGpsLocation(null); // Reset location
   };
 
   const handleLanguageChange = (code: string) => {
@@ -350,7 +358,7 @@ const App: React.FC = () => {
   const currentLang = LANGUAGES.find(l => l.code === langCode);
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-slate-900 text-white" style={backgroundStyle}>
+    <div className="relative w-full h-[100dvh] overflow-hidden bg-slate-900 text-white" style={backgroundStyle}>
       {selectedImage && <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-all duration-1000" />}
 
       {/* In-App Browser Warning Banner */}
@@ -498,7 +506,7 @@ const App: React.FC = () => {
       <div className="relative z-10 w-full h-full flex flex-col">
         
         {state === AppState.IDLE && (
-          <PhotoInput onImageSelect={handleImageSelect} t={t} />
+          <PhotoInput onImageSelect={handleImageSelect} t={t} onLocationFound={handleLocationFound} />
         )}
 
         {state === AppState.SELECTING_LANDMARK && identificationResult && (
@@ -523,7 +531,7 @@ const App: React.FC = () => {
         {/* LOADING STATES */}
         
         {state === AppState.ANALYZING_IMAGE && (
-          <ScanningView imageSrc={selectedImage} t={t} />
+          <ScanningView imageSrc={selectedImage} t={t} hasGps={!!gpsLocation} />
         )}
 
         {state === AppState.FETCHING_DETAILS && (
