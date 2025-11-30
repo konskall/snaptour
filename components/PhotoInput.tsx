@@ -5,13 +5,29 @@ import { Translation } from '../types';
 interface PhotoInputProps {
   onImageSelect: (file: File) => void;
   t: Translation;
+  onLocationFound?: (coords: { lat: number, lng: number }) => void;
 }
 
-export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
+export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t, onLocationFound }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
+      // Try to get location context when photo is selected
+      if (onLocationFound && navigator.geolocation) {
+         navigator.geolocation.getCurrentPosition(
+           (position) => {
+             onLocationFound({
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+             });
+           },
+           (err) => {
+             console.log("Location access not available or denied:", err);
+           },
+           { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+         );
+      }
       onImageSelect(e.target.files[0]);
     }
   };
