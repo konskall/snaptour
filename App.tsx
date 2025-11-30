@@ -52,11 +52,11 @@ const App: React.FC = () => {
     setMissingCreds(missing);
   }, []);
 
-  // Detect In-App Browser (LinkedIn, Instagram, FB)
+  // Detect In-App Browser (Specifically LinkedIn where Google Login fails)
   useEffect(() => {
     const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
-    // Regex to detect common in-app browsers
-    if (/(LinkedInApp|Instagram|FBAN|FBAV)/i.test(ua)) {
+    // Regex to detect ONLY LinkedIn based on user feedback
+    if (/(LinkedInApp)/i.test(ua)) {
       setIsInAppBrowser(true);
     }
   }, []);
