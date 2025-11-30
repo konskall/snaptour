@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SnapTour - Ai Landmark Recognition & Audio Tours</title>
+<meta name="description" content="Discover landmark history instantly. Take a photo, get Ai-powered recognition, and listen to narrated audio tours with fascinating historical insights.">
+<meta name="keywords" content="landmarks, Ai recognition, audio tours, history, tourism, travel app, photo recognition">
+<meta name="author" content="SnapTour">
+<meta name="robots" content="index, follow">
+<meta name="language" content="English">
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://konskall.github.io/snaptour/">
+<meta property="og:title" content="SnapTour - Ai Landmark Recognition & Audio Tours">
+<meta property="og:description" content="Discover landmark history instantly. Take a photo, get Ai-powered recognition, and listen to narrated audio tours with fascinating historical insights.">
+<meta property="og:image" content="https://konskall.github.io/snaptour/ogsnaptour.png?v=3">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:site_name" content="SnapTour">
+<meta property="og:locale" content="en_US">
+<!-- Apple / iOS -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SnapTour">
+<!-- Android / Chrome -->
+<meta name="theme-color" content="#1a1f36">
+<meta name="mobile-web-app-capable" content="yes">
+<!-- Canonical -->
+<link rel="canonical" href="https://konskall.github.io/snaptour/">
+<!-- Preconnect to external resources -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="image" href="https://konskall.github.io/snaptour/ogsnaptour.png?v=3">
+<link rel="icon" type="image/png" href="https://konskall.github.io/snaptour/favicon-96x96.png" sizes="96x96" />
+<link rel="icon" type="image/svg+xml" href="https://konskall.github.io/snaptour/favicon.svg" />
+<link rel="shortcut icon" href="https://konskall.github.io/snaptour/favicon.ico" />
+<link rel="apple-touch-icon" sizes="180x180" href="https://konskall.github.io/snaptour/apple-touch-icon.png" />
+<link rel="manifest" href="https://konskall.github.io/snaptour/site.webmanifest" />
+    <!-- Tailwind CDN is kept for styling simplicity without complex config -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #0f172a;
+        color: #f8fafc;
+      }
+      /* Custom scrollbar for better aesthetics */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #1e293b;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #475569;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #64748b;
+      }
+      
+      /* Scanning Animation */
+      @keyframes scan {
+        0% { top: 0%; opacity: 0; }
+        10% { opacity: 1; }
+        90% { opacity: 1; }
+        100% { top: 100%; opacity: 0; }
+      }
+      .scan-line {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #6366f1;
+        box-shadow: 0 0 20px 2px #6366f1, 0 0 10px 1px #818cf8;
+        animation: scan 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        z-index: 20;
+      }
+      
+      .animate-shimmer {
+        animation: shimmer 2s linear infinite;
+        background: linear-gradient(to right, #1e293b 0%, #334155 20%, #1e293b 40%, #1e293b 100%);
+        background-size: 1000px 100%;
+      }
+      
+      @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+      }
+    </style>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
