@@ -130,9 +130,13 @@ const App: React.FC = () => {
     // We should NOT fallback to mock login here, as it confuses users (logging them in as Guest).
     if (!window.google) {
         console.error("Google Sign-In script not loaded yet.");
-        // If we are in an in-app browser, the banner is already showing. 
-        // If not, show a generic alert.
-        if (!isInAppBrowser) {
+        
+        // Check if we are in Instagram (which works but might be slow)
+        const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
+        const isInstagram = /(Instagram)/i.test(ua);
+
+        // Only show alert if it's NOT LinkedIn (Banner) AND NOT Instagram (Slow but working)
+        if (!isInAppBrowser && !isInstagram) {
            alert("Google Sign-In is still initializing or blocked. Please refresh the page.");
         }
         return;
