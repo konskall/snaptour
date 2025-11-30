@@ -9,7 +9,7 @@ import { ChatView } from './components/ChatView';
 import { identifyLandmarkFromImage, getLandmarkDetails, generateNarrationAudio } from './services/geminiService';
 import { saveHistoryItem, getHistory, createThumbnail, clearHistory } from './services/storageService';
 import { AppState, AnalysisResult, LandmarkIdentification, User, HistoryItem } from './types';
-import { Loader2, Globe, History, UserCircle, LogOut, Zap, AlertTriangle } from 'lucide-react';
+import { Loader2, Globe, History, UserCircle, LogOut, Zap, AlertTriangle, ExternalLink } from 'lucide-react';
 import { Logo } from './components/Logo';
 import { LANGUAGES, translations } from './translations';
 
@@ -30,11 +30,13 @@ const App: React.FC = () => {
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [isAudioUnavailable, setIsAudioUnavailable] = useState(false);
   const [missingCreds, setMissingCreds] = useState<string[]>([]);
+  const [isInAppBrowser, setIsInAppBrowser] = useState(false);
   
   // User & History State
   const [user, setUser] = useState<User | null>(null);
   const [userHistory, setUserHistory] = useState<HistoryItem[]>([]);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isGoogleScriptLoaded, setIsGoogleScriptLoaded] = useState(false);
 
   // Refs for click-outside detection
   const langMenuRef = useRef<HTMLDivElement>(null);
@@ -48,6 +50,26 @@ const App: React.FC = () => {
     if (!process.env.API_KEY) missing.push("API_KEY");
     if (!process.env.GOOGLE_CLIENT_ID) missing.push("GOOGLE_CLIENT_ID");
     setMissingCreds(missing);
+  }, []);
+
+  // Detect In-App Browser (LinkedIn, Instagram, FB)
+  useEffect(() => {
+    const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
+    // Regex to detect common in-app browsers
+    if (/(LinkedInApp|Instagram|FBAN|FBAV)/i.test(ua)) {
+      setIsInAppBrowser(true);
+    }
+  }, []);
+
+  // Poll for Google Script Load (fix for In-App browsers like LinkedIn)
+  useEffect(() => {
+    const checkGoogle = setInterval(() => {
+      if (window.google) {
+        setIsGoogleScriptLoaded(true);
+        clearInterval(checkGoogle);
+      }
+    }, 500);
+    return () => clearInterval(checkGoogle);
   }, []);
 
   // Check for saved user session on mount
@@ -84,7 +106,7 @@ const App: React.FC = () => {
     const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 
     const performMockLogin = () => {
-       console.warn("Using Mock Login (Demo Mode) - Missing CLIENT_ID or Google Script");
+       console.warn("Using Mock Login (Demo Mode) - Missing CLIENT_ID");
        const mockUser: User = {
          name: "Guest Traveler",
          email: "guest@snaptour.app",
@@ -96,10 +118,24 @@ const App: React.FC = () => {
        setUserHistory(getHistory(mockUser.email));
     };
 
-    if (!CLIENT_ID || !window.google) {
+    // 1. Critical: Check if Client ID exists. If NOT, we are likely in dev mode or not configured.
+    if (!CLIENT_ID) {
       performMockLogin();
       setIsUserMenuOpen(false);
       return;
+    }
+
+    // 2. Client ID exists, so we EXPECT Google Login to work.
+    // If window.google is missing, it's a network/browser loading issue or blocked by In-App Browser.
+    // We should NOT fallback to mock login here, as it confuses users (logging them in as Guest).
+    if (!window.google) {
+        console.error("Google Sign-In script not loaded yet.");
+        // If we are in an in-app browser, the banner is already showing. 
+        // If not, show a generic alert.
+        if (!isInAppBrowser) {
+           alert("Google Sign-In is still initializing or blocked. Please refresh the page.");
+        }
+        return;
     }
 
     try {
@@ -131,7 +167,8 @@ const App: React.FC = () => {
       client.requestAccessToken();
     } catch (err) {
       console.error("Google Login Error:", err);
-      performMockLogin();
+      // Only fallback if there's a hard crash in the library, though alert is better
+      alert("An error occurred starting Google Sign-In. Please try again.");
     }
     setIsUserMenuOpen(false);
   };
@@ -312,7 +349,19 @@ const App: React.FC = () => {
     <div className="relative w-full h-screen overflow-hidden bg-slate-900 text-white" style={backgroundStyle}>
       {selectedImage && <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-all duration-1000" />}
 
-      {missingCreds.length > 0 && (
+      {/* In-App Browser Warning Banner */}
+      {isInAppBrowser && (
+        <div className="absolute top-0 left-0 right-0 bg-amber-600 text-white z-[110] px-4 py-3 flex items-center justify-center shadow-xl animate-slide-down">
+           <div className="flex items-center gap-3 text-center">
+             <ExternalLink size={20} className="flex-shrink-0" />
+             <span className="text-sm font-bold">
+               {t.inAppBrowserWarning}
+             </span>
+           </div>
+        </div>
+      )}
+
+      {missingCreds.length > 0 && !isInAppBrowser && (
         <div className="absolute top-0 left-0 right-0 bg-red-600 text-white z-[100] px-4 py-2 flex items-center justify-between shadow-xl">
            <div className="flex items-center gap-2">
              <AlertTriangle size={18} className="fill-white text-red-600" />
@@ -325,7 +374,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <div className={`absolute ${missingCreds.length > 0 ? 'top-10' : 'top-0'} left-0 right-0 p-6 z-40 flex items-center justify-between pointer-events-none transition-all`}>
+      <div className={`absolute ${isInAppBrowser ? 'top-16' : missingCreds.length > 0 ? 'top-10' : 'top-0'} left-0 right-0 p-6 z-40 flex items-center justify-between pointer-events-none transition-all`}>
         {/* Brand */}
         <div 
           onClick={resetApp}
