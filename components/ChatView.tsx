@@ -60,10 +60,10 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center pointer-events-none p-0 sm:p-6">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center pointer-events-none pt-28 px-0 pb-0 sm:p-6">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" onClick={onClose} />
       
-      <div className="relative pointer-events-auto w-full max-w-md bg-slate-900 border-t sm:border border-slate-700 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col h-[85dvh] sm:h-[600px] animate-slide-up">
+      <div className="relative pointer-events-auto w-full max-w-md bg-slate-900 border-t sm:border border-slate-700 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col h-full sm:h-[600px] animate-slide-up">
         
         {/* Header */}
         <div className="p-4 border-b border-slate-700 flex items-center justify-between bg-slate-800/50 rounded-t-3xl shrink-0">
@@ -106,7 +106,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
         </div>
 
         {/* Input */}
-        <div className="p-4 pb-8 sm:pb-4 border-t border-slate-700 bg-slate-800/50 shrink-0">
+        <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-slate-700 bg-slate-800/50 shrink-0">
           <div className="flex gap-2">
             <input
               type="text"
@@ -114,6 +114,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder={t.chatPlaceholder}
+              style={{ fontSize: '16px' }} // Force 16px to prevent iOS Zoom
               className="flex-1 bg-slate-900 border border-slate-600 rounded-full px-4 py-3 text-base text-white focus:outline-none focus:border-indigo-500"
             />
             <button 
