@@ -340,18 +340,21 @@ const App: React.FC = () => {
     setIsLangMenuOpen(false);
   };
 
-  const backgroundStyle = selectedImage ? {
-    backgroundImage: `url(${selectedImage})`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-  } : {};
-
   // Find current language object
   const currentLang = LANGUAGES.find(l => l.code === langCode);
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-slate-900 text-white" style={backgroundStyle}>
-      {selectedImage && <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-all duration-1000" />}
+    <div className="relative w-full h-[100dvh] overflow-hidden bg-slate-900 text-white">
+      {/* Fixed Background Layer to prevent scrolling/rubber-banding on iOS */}
+      <div 
+        className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-500 pointer-events-none"
+        style={selectedImage ? { backgroundImage: `url(${selectedImage})` } : {}}
+      />
+      
+      {/* Dark Overlay for better text contrast */}
+      {selectedImage && (
+        <div className="fixed inset-0 z-0 bg-black/40 backdrop-blur-sm transition-all duration-1000 pointer-events-none" />
+      )}
 
       {/* In-App Browser Warning Banner */}
       {isInAppBrowser && (
