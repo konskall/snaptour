@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>SnapTour - Ai Landmark Recognition & Audio Tours</title>
 <meta name="description" content="Discover landmark history instantly. Take a photo, get Ai-powered recognition, and listen to narrated audio tours with fascinating historical insights.">
 <meta name="keywords" content="landmarks, Ai recognition, audio tours, history, tourism, travel app, photo recognition">
@@ -42,6 +42,13 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+      /* iOS Optimization: Prevent rubber-banding and tap delays */
+      html, body {
+        overscroll-behavior-y: none;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+      }
+
       body {
         font-family: 'Inter', sans-serif;
         background-color: #0f172a;
