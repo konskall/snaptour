@@ -58,7 +58,8 @@ export const translations: Record<string, Translation> = {
     nearbyTitle: "What else is nearby?",
     viewMap: "View on Map",
     close: "Close",
-    audioLimit: "Audio unavailable (Usage Limit)"
+    audioLimit: "Audio unavailable (Usage Limit)",
+    inAppBrowserWarning: "Google Login is blocked in this app. Tap the menu (...) and select 'Open in Browser'."
   },
   es: {
     startTitle: "Descubre el Mundo",
@@ -107,7 +108,8 @@ export const translations: Record<string, Translation> = {
     nearbyTitle: "¿Qué más hay cerca?",
     viewMap: "Ver en Mapa",
     close: "Cerrar",
-    audioLimit: "Audio no disponible (Límite)"
+    audioLimit: "Audio no disponible (Límite)",
+    inAppBrowserWarning: "Google Login bloqueado aquí. Toca el menú (...) y elige 'Abrir en el navegador'."
   },
   fr: {
     startTitle: "Découvrez le Monde",
@@ -156,7 +158,8 @@ export const translations: Record<string, Translation> = {
     nearbyTitle: "Quoi d'autre à proximité ?",
     viewMap: "Voir sur la carte",
     close: "Fermer",
-    audioLimit: "Audio indisponible (Limite)"
+    audioLimit: "Audio indisponible (Limite)",
+    inAppBrowserWarning: "Google Login bloqué. Touchez le menu (...) et 'Ouvrir dans le navigateur'."
   },
   de: {
     startTitle: "Entdecke die Welt",
@@ -205,7 +208,8 @@ export const translations: Record<string, Translation> = {
     nearbyTitle: "Was gibt es in der Nähe?",
     viewMap: "Auf Karte ansehen",
     close: "Schließen",
-    audioLimit: "Audio nicht verfügbar"
+    audioLimit: "Audio nicht verfügbar",
+    inAppBrowserWarning: "Google Login blockiert. Tippen Sie auf (...) und 'Im Browser öffnen'."
   },
   zh: {
     startTitle: "探索世界",
@@ -254,7 +258,8 @@ export const translations: Record<string, Translation> = {
     nearbyTitle: "附近还有什么？",
     viewMap: "在地图上查看",
     close: "关闭",
-    audioLimit: "音频不可用 (限制)"
+    audioLimit: "音频不可用 (限制)",
+    inAppBrowserWarning: "Google 登录受限。请点击菜单 (...) 并选择“在浏览器中打开”。"
   },
   hi: {
     startTitle: "दुनिया की खोज करें",
@@ -303,7 +308,8 @@ export const translations: Record<string, Translation> = {
     nearbyTitle: "आस-पास और क्या है?",
     viewMap: "मानचित्र पर देखें",
     close: "बंद करें",
-    audioLimit: "ऑडियो उपलब्ध नहीं"
+    audioLimit: "ऑडियो उपलब्ध नहीं",
+    inAppBrowserWarning: "Google लॉगिन अवरुद्ध है। (...) पर टैप करें और 'ब्राउज़र में खोलें' चुनें।"
   },
   el: {
     startTitle: "Ανακαλύψτε τον Κόσμο",
@@ -352,6 +358,7 @@ export const translations: Record<string, Translation> = {
     nearbyTitle: "Τι άλλο υπάρχει κοντά;",
     viewMap: "Προβολή Χάρτη",
     close: "Κλείσιμο",
-    audioLimit: "Η αφήγηση δεν είναι διαθέσιμη (Όριο Χρήσης)"
+    audioLimit: "Η αφήγηση δεν είναι διαθέσιμη (Όριο Χρήσης)",
+    inAppBrowserWarning: "Το Google Login δεν λειτουργεί εδώ. Πατήστε (...) και 'Άνοιγμα σε Browser'."
   }
 };
