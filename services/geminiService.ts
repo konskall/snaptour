@@ -43,9 +43,19 @@ async function retryOperation<T>(operation: () => Promise<T>, retries = 3, delay
 }
 
 // 1. Identify the landmark using gemini-2.5-flash with Google Search Grounding for ACCURACY
-export async function identifyLandmarkFromImage(base64Image: string, mimeType: string, language: string): Promise<LandmarkIdentification> {
+export async function identifyLandmarkFromImage(
+  base64Image: string, 
+  mimeType: string, 
+  language: string,
+  coords?: { lat: number, lng: number } | null
+): Promise<LandmarkIdentification> {
   return retryOperation(async () => {
     try {
+      let locationContext = "";
+      if (coords) {
+        locationContext = `The user is located at Latitude: ${coords.lat}, Longitude: ${coords.lng}. Use this location to help verify the landmark if visible in the image.`;
+      }
+
       const response = await getAI().models.generateContent({
         model: 'gemini-2.5-flash',
         contents: {
@@ -59,6 +69,7 @@ export async function identifyLandmarkFromImage(base64Image: string, mimeType: s
             {
               text: `Identify this landmark precisely using Google Search to verify visual features. 
               Look for specific architectural details, signage, or unique characteristics to ensure accuracy.
+              ${locationContext}
               
               Return a STRICT JSON object (do not use Markdown code blocks) with the following structure:
               {
