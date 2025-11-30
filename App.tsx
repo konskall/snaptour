@@ -345,20 +345,20 @@ const App: React.FC = () => {
 
   return (
     <div className="relative w-full h-[100dvh] overflow-hidden bg-slate-900 text-white">
-      {/* Fixed Background Layer to prevent scrolling/rubber-banding on iOS */}
-      <div 
-        className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-500 pointer-events-none"
-        style={selectedImage ? { backgroundImage: `url(${selectedImage})` } : {}}
-      />
-      
-      {/* Dark Overlay for better text contrast */}
+      {/* Background Image Layer - Fixed to allow content scroll without background movement on iOS */}
       {selectedImage && (
-        <div className="fixed inset-0 z-0 bg-black/40 backdrop-blur-sm transition-all duration-1000 pointer-events-none" />
+        <div className="fixed inset-0 z-0 pointer-events-none">
+          <div 
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${selectedImage})` }}
+          />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-all duration-1000" />
+        </div>
       )}
 
       {/* In-App Browser Warning Banner */}
       {isInAppBrowser && (
-        <div className="absolute top-0 left-0 right-0 bg-amber-600 text-white z-[110] px-4 py-3 flex items-center justify-center shadow-xl animate-slide-down">
+        <div className="fixed top-0 left-0 right-0 bg-amber-600 text-white z-[110] px-4 py-3 flex items-center justify-center shadow-xl animate-slide-down">
            <div className="flex items-center gap-3 text-center">
              <ExternalLink size={20} className="flex-shrink-0" />
              <span className="text-sm font-bold">
@@ -369,7 +369,7 @@ const App: React.FC = () => {
       )}
 
       {missingCreds.length > 0 && !isInAppBrowser && (
-        <div className="absolute top-0 left-0 right-0 bg-red-600 text-white z-[100] px-4 py-2 flex items-center justify-between shadow-xl">
+        <div className="fixed top-0 left-0 right-0 bg-red-600 text-white z-[100] px-4 py-2 flex items-center justify-between shadow-xl">
            <div className="flex items-center gap-2">
              <AlertTriangle size={18} className="fill-white text-red-600" />
              <span className="text-sm font-bold">
