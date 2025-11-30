@@ -378,7 +378,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <div className={`absolute ${isInAppBrowser ? 'top-16' : missingCreds.length > 0 ? 'top-10' : 'top-0'} left-0 right-0 p-6 z-40 flex items-center justify-between pointer-events-none transition-all`}>
+      <div className={`fixed ${isInAppBrowser ? 'top-16' : missingCreds.length > 0 ? 'top-10' : 'top-0'} left-0 right-0 p-6 z-[55] flex items-center justify-between pointer-events-none transition-all`}>
         {/* Brand */}
         <div 
           onClick={resetApp}
