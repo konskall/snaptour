@@ -114,4 +114,5 @@ export interface Translation {
   viewMap: string;
   close: string;
   audioLimit: string;
+  inAppBrowserWarning: string;
 }
