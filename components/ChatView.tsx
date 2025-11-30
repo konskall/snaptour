@@ -114,7 +114,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder={t.chatPlaceholder}
-              className="flex-1 bg-slate-900 border border-slate-600 rounded-full px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500"
+              className="flex-1 bg-slate-900 border border-slate-600 rounded-full px-4 py-3 text-base text-white focus:outline-none focus:border-indigo-500"
             />
             <button 
               onClick={handleSend}
