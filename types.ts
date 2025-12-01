@@ -1,3 +1,4 @@
+
 export interface LandmarkInfo {
   name: string;
   description: string;
@@ -16,6 +17,7 @@ export interface AnalysisResult {
   detailedInfo: string;
   groundingSources: GroundingChunk[];
   audioBuffer: AudioBuffer | null;
+  nativeTTSFallback?: boolean; // New flag for fallback
 }
 
 export interface LandmarkIdentification {
