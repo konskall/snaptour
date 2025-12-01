@@ -28,3 +28,26 @@ export async function decodeAudioData(
   }
   return buffer;
 }
+
+// Concatenates multiple AudioBuffers into a single buffer
+export function concatenateAudioBuffers(buffers: AudioBuffer[], ctx: AudioContext): AudioBuffer | null {
+  if (!buffers || buffers.length === 0) return null;
+  if (buffers.length === 1) return buffers[0];
+
+  const totalLength = buffers.reduce((acc, b) => acc + b.length, 0);
+  const result = ctx.createBuffer(
+    buffers[0].numberOfChannels, 
+    totalLength, 
+    buffers[0].sampleRate
+  );
+
+  let offset = 0;
+  for (const buff of buffers) {
+    for (let channel = 0; channel < buff.numberOfChannels; channel++) {
+      result.getChannelData(channel).set(buff.getChannelData(channel), offset);
+    }
+    offset += buff.length;
+  }
+
+  return result;
+}
