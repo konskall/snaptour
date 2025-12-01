@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import { decodeBase64, decodeAudioData } from "./audioUtils";
 import { GroundingChunk, LandmarkIdentification, ChatMessage, NearbyPlace } from "../types";
 
@@ -28,13 +28,22 @@ const getDecodingContext = () => {
   return decodingContext;
 };
 
-// Retry helper for 429 errors
+// Retry helper for 429 (Rate Limit) and 503 (Service Unavailable) errors
 async function retryOperation<T>(operation: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
   try {
     return await operation();
   } catch (error: any) {
-    if (retries > 0 && (error.status === 429 || error.message?.includes('429') || error.message?.includes('quota'))) {
-      console.warn(`Rate limit hit. Retrying in ${delay}ms... (${retries} retries left)`);
+    // Retry on 429 (Too Many Requests), 503 (Service Unavailable), or 500 (Internal Server Error)
+    const shouldRetry = 
+      error.status === 429 || 
+      error.status === 503 || 
+      error.status === 500 ||
+      error.message?.includes('429') || 
+      error.message?.includes('quota') ||
+      error.message?.includes('overloaded');
+
+    if (retries > 0 && shouldRetry) {
+      console.warn(`API Error (${error.status || 'Unknown'}). Retrying in ${delay}ms... (${retries} retries left)`);
       await new Promise(resolve => setTimeout(resolve, delay));
       return retryOperation(operation, retries - 1, delay * 2);
     }
@@ -75,7 +84,6 @@ export async function identifyLandmarkFromImage(base64Image: string, mimeType: s
         config: {
           // We enable Google Search for higher accuracy
           tools: [{ googleSearch: {} }],
-          // responseMimeType cannot be 'application/json' when using tools in some versions, so we parse manually
         }
       });
 
@@ -83,7 +91,6 @@ export async function identifyLandmarkFromImage(base64Image: string, mimeType: s
       if (!text) throw new Error("Could not identify landmark");
       
       // Clean up the response to ensure we get valid JSON
-      // Sometimes the model wraps JSON in ```json ... ``` or adds text before/after
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       
       if (jsonMatch) {
@@ -125,62 +132,55 @@ export async function getLandmarkDetails(landmarkName: string, language: string)
 
 // 3. Generate speech using gemini-2.5-flash-preview-tts (TTS)
 export async function generateNarrationAudio(text: string): Promise<AudioBuffer | null> {
-  try {
-    // We do NOT wrap this in retryOperation because audio failures are often due to payload size issues
-    // or strict quota limits on the preview model, which retries won't fix immediately.
-    
-    const response = await getAI().models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: text }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Kore' },
+  // Wrap in retryOperation to handle instability in the preview model
+  return retryOperation(async () => {
+    try {
+      const response = await getAI().models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: text }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: 'Kore' },
+            },
           },
         },
-      },
-    });
+      });
 
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) {
-        console.warn("No audio data returned from API");
-        return null;
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (!base64Audio) {
+          console.warn("No audio data returned from API");
+          return null;
+      }
+
+      // Use shared context for decoding to avoid memory leaks/limits
+      const audioContext = getDecodingContext();
+      
+      const audioBuffer = await decodeAudioData(
+        decodeBase64(base64Audio),
+        audioContext,
+        24000,
+        1
+      );
+
+      return audioBuffer;
+    } catch (error: any) {
+      // Specifically handle the "SyntaxError: JSON Parse error" which happens when the binary payload breaks the SDK
+      // We do NOT re-throw this specific error to retry, as it usually implies the payload is simply too big for the client.
+      if (error.message && (
+          error.message.includes("deserializing") || 
+          error.message.includes("SyntaxError") || 
+          error.message.includes("JSON Parse error")
+      )) {
+          console.warn("Audio generation failed due to SDK deserialization error (likely binary size). Skipping audio.");
+          return null; // Return null gracefully so UI shows "Audio Unavailable" icon
+      }
+
+      // Throw other errors (429, 503, 500) so retryOperation handles them
+      throw error;
     }
-
-    // Use shared context for decoding to avoid memory leaks/limits
-    const audioContext = getDecodingContext();
-    
-    // NOTE: We do NOT call audioContext.resume() here. 
-    // Browsers block resume() if not triggered by a user gesture (click).
-    // Calling it here would hang the promise indefinitely.
-    // The AudioBuffer can be decoded even if the context is suspended.
-    // The context will be resumed in TourCard.tsx when the user clicks "Play".
-
-    const audioBuffer = await decodeAudioData(
-      decodeBase64(base64Audio),
-      audioContext,
-      24000,
-      1
-    );
-
-    return audioBuffer;
-  } catch (error: any) {
-    // Specifically handle the "SyntaxError: JSON Parse error" / "Error when deserializing response data"
-    // which happens when the binary payload breaks the SDK's internal parser or backend fails.
-    if (error.message && (
-        error.message.includes("deserializing") || 
-        error.message.includes("SyntaxError") || 
-        error.message.includes("JSON Parse error") ||
-        error.code === 500
-    )) {
-        console.warn("Audio generation failed due to SDK deserialization error (likely binary size). Skipping audio.");
-        return null; // Return null gracefully so UI shows "Audio Unavailable" icon
-    }
-
-    console.error("Error generating audio:", error);
-    return null;
-  }
+  }, 3, 1500); // 3 retries, starting with 1.5s delay
 }
 
 // 4. Chat with the guide
@@ -214,7 +214,6 @@ export async function getChatResponse(landmarkName: string, history: ChatMessage
 // 5. Get nearby places with Google Search Grounding for accuracy
 export async function getNearbyPlaces(landmarkName: string, language: string): Promise<NearbyPlace[]> {
   try {
-    // Use Google Search tool to ensure real places are found
     const response = await getAI().models.generateContent({
       model: "gemini-2.5-flash",
       contents: `List 3 real and interesting tourist attractions near ${landmarkName}. 
@@ -224,7 +223,6 @@ export async function getNearbyPlaces(landmarkName: string, language: string): P
       Translate the output to ${language}.`,
       config: {
         tools: [{ googleSearch: {} }],
-        // responseMimeType cannot be used with tools in some SDK versions/models, so we parse manually
       }
     });
 
