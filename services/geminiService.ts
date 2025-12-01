@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { decodeBase64, decodeAudioData } from "./audioUtils";
 import { GroundingChunk, LandmarkIdentification, ChatMessage, NearbyPlace } from "../types";
 
@@ -133,8 +133,7 @@ export async function generateNarrationAudio(text: string): Promise<AudioBuffer 
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text: text }] }],
       config: {
-        // Use string literal 'AUDIO' instead of Modality.AUDIO to avoid Vite bundling issues
-        responseModalities: ['AUDIO'],
+        responseModalities: [Modality.AUDIO],
         speechConfig: {
           voiceConfig: {
             prebuiltVoiceConfig: { voiceName: 'Kore' },
