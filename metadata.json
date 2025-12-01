@@ -1,0 +1,8 @@
+{
+  "name": "SnapTour",
+  "description": "An AI-powered photo tourism app that recognizes landmarks, fetches history via Google Search, and provides narrated audio tours.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
