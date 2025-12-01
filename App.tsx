@@ -9,7 +9,7 @@ import { ChatView } from './components/ChatView';
 import { identifyLandmarkFromImage, getLandmarkDetails, generateNarrationAudio } from './services/geminiService';
 import { saveHistoryItem, getHistory, createThumbnail, clearHistory } from './services/storageService';
 import { AppState, AnalysisResult, LandmarkIdentification, User, HistoryItem } from './types';
-import { Loader2, History, LogOut, Zap, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Loader2, Globe, History, UserCircle, LogOut, Zap, AlertTriangle, ExternalLink } from 'lucide-react';
 import { Logo } from './components/Logo';
 import { LANGUAGES, translations } from './translations';
 
