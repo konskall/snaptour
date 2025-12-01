@@ -199,6 +199,28 @@ const App: React.FC = () => {
     }
   };
 
+  const handleGenerateAudio = async () => {
+    if (!result || isGeneratingAudio) return;
+    
+    setIsGeneratingAudio(true);
+    setIsAudioUnavailable(false); // Reset error state on retry
+
+    try {
+      const audioBuffer = await generateNarrationAudio(result.detailedInfo);
+      
+      if (audioBuffer) {
+        setResult(prev => prev ? { ...prev, audioBuffer } : null);
+      } else {
+        setIsAudioUnavailable(true);
+      }
+    } catch (error) {
+      console.error("Audio generation failed:", error);
+      setIsAudioUnavailable(true);
+    } finally {
+      setIsGeneratingAudio(false);
+    }
+  };
+
   const handleHistorySelect = async (item: HistoryItem) => {
     const textContent = item.detailedInfo || item.summary;
     setResult({
@@ -209,26 +231,10 @@ const App: React.FC = () => {
     });
     setSelectedImage(`data:image/jpeg;base64,${item.thumbnail}`);
     setState(AppState.SHOWING_RESULT);
-    setIsAudioUnavailable(false); // Reset status
-
-    setIsGeneratingAudio(true);
-    try {
-      const audioBuffer = await generateNarrationAudio(textContent);
-      if (!audioBuffer) {
-        setIsAudioUnavailable(true);
-      }
-      setResult((prev) => {
-        if (prev && prev.landmarkName === item.landmarkName) {
-          return { ...prev, audioBuffer };
-        }
-        return prev;
-      });
-    } catch (audioError) {
-      console.error("Failed to regenerate audio from history", audioError);
-      setIsAudioUnavailable(true);
-    } finally {
-      setIsGeneratingAudio(false);
-    }
+    
+    // Reset Audio States - user must click play to generate
+    setIsAudioUnavailable(false); 
+    setIsGeneratingAudio(false);
   };
 
   const handleImageSelect = (file: File) => {
@@ -269,7 +275,11 @@ const App: React.FC = () => {
   const fetchDetails = async (landmarkName: string, imageOverride?: string) => {
     try {
       setState(AppState.FETCHING_DETAILS);
-      setIsAudioUnavailable(false); // Reset audio status
+      
+      // Reset Audio States - user must click play to generate
+      setIsAudioUnavailable(false);
+      setIsGeneratingAudio(false);
+
       const { text: detailedInfo, sources } = await getLandmarkDetails(landmarkName, currentLangName);
       setResult({
         landmarkName,
@@ -294,28 +304,10 @@ const App: React.FC = () => {
         saveHistoryItem(user.email, historyItem);
         setUserHistory(getHistory(user.email)); 
       }
+      
+      // We do NOT automatically generate audio anymore to prevent hitting rate limits
+      // Audio is generated on-demand when the user clicks Play
 
-      setIsGeneratingAudio(true);
-      try {
-        // Add a small delay to avoid hitting rate limits immediately after fetching details
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const audioBuffer = await generateNarrationAudio(detailedInfo);
-        if (!audioBuffer) {
-           setIsAudioUnavailable(true);
-        }
-        setResult((prev) => {
-          if (prev && prev.landmarkName === landmarkName) {
-            return { ...prev, audioBuffer };
-          }
-          return prev;
-        });
-      } catch (audioError) {
-        console.error("Audio generation failed", audioError);
-        setIsAudioUnavailable(true);
-      } finally {
-        setIsGeneratingAudio(false);
-      }
     } catch (error: any) {
       console.error(error);
       if (error.message?.includes("429") || error.status === 429 || JSON.stringify(error).includes("RESOURCE_EXHAUSTED")) {
@@ -324,7 +316,6 @@ const App: React.FC = () => {
          setErrorMsg(t.error);
       }
       setState(AppState.ERROR);
-      setIsGeneratingAudio(false);
     }
   };
 
@@ -543,6 +534,7 @@ const App: React.FC = () => {
             result={result} 
             onReset={resetApp} 
             onChat={() => setState(AppState.CHATTING)}
+            onGenerateAudio={handleGenerateAudio}
             t={t} 
             isAudioLoading={isGeneratingAudio}
             isAudioUnavailable={isAudioUnavailable}
