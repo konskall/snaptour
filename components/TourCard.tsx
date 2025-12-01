@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Play, Pause, ExternalLink, MapPin, Sparkles, Loader2, Share2, Check, MessageCircle, Map as MapIcon, Compass, ChevronDown, ChevronUp, VolumeX, RefreshCcw, Volume2 } from 'lucide-react';
+import { Play, Pause, ExternalLink, MapPin, Sparkles, Loader2, Share2, Check, MessageCircle, Map as MapIcon, Compass, ChevronDown, ChevronUp, Volume2 } from 'lucide-react';
 import { AnalysisResult, Translation, NearbyPlace } from '../types';
 import { getNearbyPlaces } from '../services/geminiService';
 
@@ -53,7 +53,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   const speakNative = () => {
      if (!result.detailedInfo) return;
 
-     // Case 1: Resuming from Pause
+     // Case 1: Resuming from Pause (Works well on Desktop, iffy on iOS but worth trying)
      if (window.speechSynthesis.paused && window.speechSynthesis.speaking) {
          window.speechSynthesis.resume();
          setIsPlaying(true);
@@ -61,42 +61,56 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
      }
 
      // Case 2: Starting Fresh
-     window.speechSynthesis.cancel(); // Clear any pending
+     // iOS Fix: Cancel before speaking to clear any stuck state
+     window.speechSynthesis.cancel(); 
      
      const utterance = new SpeechSynthesisUtterance(result.detailedInfo);
      utteranceRef.current = utterance; // Keep reference to prevent GC
 
-     // Setup Voice
-     const loadVoice = () => {
+     // iOS tends to speak fast, slow it down slightly
+     utterance.rate = 0.9; 
+     utterance.pitch = 1.0;
+
+     // Function to select voice and speak
+     const setVoiceAndSpeak = () => {
          const voices = window.speechSynthesis.getVoices();
+         // Loose matching for iOS (e.g. 'el-GR' vs 'el')
          const voice = voices.find(v => v.lang.startsWith(langCode)) || voices.find(v => v.lang.includes(langCode));
-         if (voice) utterance.voice = voice;
+         if (voice) {
+            utterance.voice = voice;
+         }
+         
+         // Event handlers
+         utterance.onend = () => {
+             setIsPlaying(false);
+             utteranceRef.current = null;
+         };
+         
+         utterance.onerror = (e) => {
+             console.error("TTS Error", e);
+             setIsPlaying(false);
+             utteranceRef.current = null;
+         };
+
+         utterance.onstart = () => {
+             setIsPlaying(true);
+         };
+
+         window.speechSynthesis.speak(utterance);
      };
 
-     loadVoice();
-     // Chrome loads voices asynchronously
+     // Handle Voice Loading (iOS/Chrome async loading)
      if (window.speechSynthesis.getVoices().length === 0) {
-         window.speechSynthesis.onvoiceschanged = loadVoice;
+         // Voice list not ready yet, wait for it
+         window.speechSynthesis.onvoiceschanged = () => {
+             window.speechSynthesis.onvoiceschanged = null; // Remove listener
+             setVoiceAndSpeak();
+         };
+     } else {
+         setVoiceAndSpeak();
      }
      
-     utterance.onend = () => {
-         setIsPlaying(false);
-         utteranceRef.current = null;
-     };
-     
-     utterance.onerror = (e) => {
-         console.error("TTS Error", e);
-         setIsPlaying(false);
-         utteranceRef.current = null;
-     };
-
-     // Only update state to playing if we actually start
-     utterance.onstart = () => {
-         setIsPlaying(true);
-     };
-     
-     window.speechSynthesis.speak(utterance);
-     // Force state update in case onstart is delayed
+     // Optimistically set playing to give immediate feedback
      setIsPlaying(true);
   };
 
@@ -176,22 +190,20 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
     onGenerateAudio();
   };
 
-  // AUTO-PLAY: If audio buffer OR fallback arrives while not playing, play it automatically
+  // AUTO-PLAY LOGIC
   useEffect(() => {
     if (isAudioLoading) return;
 
-    // AI Audio Auto-play
+    // AI Audio Auto-play (Safe on most devices if context is resumed, but iOS might block it. 
+    // We leave it for AI audio as it's better UX if it works)
     if (result.audioBuffer && !isPlaying && !sourceNodeRef.current) {
        playAudio();
     } 
-    // Native TTS Auto-play
-    else if (result.nativeTTSFallback && !isPlaying && !window.speechSynthesis.speaking) {
-       // Small timeout ensures voices are ready and previous cancel() calls are processed
-       setTimeout(() => {
-           speakNative();
-       }, 100);
-    }
-  }, [result.audioBuffer, result.nativeTTSFallback, isAudioLoading]);
+    
+    // NOTE: Native TTS Auto-play removed for iOS compatibility. 
+    // iOS Safari blocks SpeechSynthesis unless triggered by a direct click event.
+    
+  }, [result.audioBuffer, isAudioLoading]);
 
   // Clean up on unmount or when result changes
   useEffect(() => {
