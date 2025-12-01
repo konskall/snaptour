@@ -358,7 +358,7 @@ export const translations: Record<string, Translation> = {
     nearbyTitle: "Τι άλλο υπάρχει κοντά;",
     viewMap: "Προβολή Χάρτη",
     close: "Κλείσιμο",
-    audioLimit: "Η αφήγηση δεν είναι διαθέσιμη (Όριο Χρήσης)",
+    audioLimit: "Η αφήγηση δεν είναι διαθέσιμη (Προσπαθήστε ξανά)",
     inAppBrowserWarning: "Το Google Login δεν λειτουργεί εδώ. Πατήστε (...) και 'Άνοιγμα σε Browser'."
   }
 };
