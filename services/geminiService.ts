@@ -1,4 +1,4 @@
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { decodeBase64, decodeAudioData } from "./audioUtils";
 import { GroundingChunk, LandmarkIdentification, ChatMessage, NearbyPlace } from "../types";
 
@@ -132,12 +132,15 @@ export async function getLandmarkDetails(landmarkName: string, language: string)
 
 // 3. Generate speech using gemini-2.5-flash-preview-tts (TTS)
 export async function generateNarrationAudio(text: string): Promise<AudioBuffer | null> {
+  // Truncate text to 500 characters to avoid API Quota/Timeout limits on the preview model
+  const safeText = text.length > 500 ? text.substring(0, 500) + "..." : text;
+
   // Wrap in retryOperation to handle instability in the preview model
   return retryOperation(async () => {
     try {
       const response = await getAI().models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: text }] }],
+        contents: [{ parts: [{ text: safeText }] }],
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
@@ -167,20 +170,21 @@ export async function generateNarrationAudio(text: string): Promise<AudioBuffer 
       return audioBuffer;
     } catch (error: any) {
       // Specifically handle the "SyntaxError: JSON Parse error" which happens when the binary payload breaks the SDK
-      // We do NOT re-throw this specific error to retry, as it usually implies the payload is simply too big for the client.
       if (error.message && (
           error.message.includes("deserializing") || 
           error.message.includes("SyntaxError") || 
           error.message.includes("JSON Parse error")
       )) {
           console.warn("Audio generation failed due to SDK deserialization error (likely binary size). Skipping audio.");
-          return null; // Return null gracefully so UI shows "Audio Unavailable" icon
+          return null;
       }
-
-      // Throw other errors (429, 503, 500) so retryOperation handles them
-      throw error;
+      
+      // If we are getting a 500/503/429, we log it and retry, but if it ultimately fails, we return null
+      // so the App can fallback to Native TTS
+      console.warn("Audio generation warning:", error.message);
+      throw error; 
     }
-  }, 3, 2000); // 3 retries, starting with 2s delay to be safe
+  }, 2, 1000); // Reduce retries to 2 to fail faster to native fallback
 }
 
 // 4. Chat with the guide
@@ -204,50 +208,41 @@ export async function getChatResponse(landmarkName: string, history: ChatMessage
       contents: prompt,
     });
 
-    return response.text || "I'm not sure about that, sorry.";
+    return response.text || "I'm sorry, I couldn't think of a response.";
   } catch (error) {
     console.error("Chat error:", error);
-    return "I'm having trouble connecting to the guide service right now.";
+    return "I'm having trouble connecting to the tour guide service right now.";
   }
 }
 
-// 5. Get nearby places with Google Search Grounding for accuracy
+// 5. Get nearby places recommendations
 export async function getNearbyPlaces(landmarkName: string, language: string): Promise<NearbyPlace[]> {
   try {
     const response = await getAI().models.generateContent({
       model: "gemini-2.5-flash",
-      contents: `List 3 real and interesting tourist attractions near ${landmarkName}. 
-      Return the response STRICTLY as a JSON array of objects. 
-      Each object must have exactly two fields: "name" (string) and "description" (string). 
-      The "description" must be extremely short, maximum 15 words.
-      Translate the output to ${language}.`,
+      contents: `List 3 interesting places to visit near ${landmarkName}. Provide the name and a short description (under 10 words) for each in ${language}.`,
       config: {
-        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              description: { type: Type.STRING }
+            },
+            required: ["name", "description"]
+          }
+        }
       }
     });
 
-    const text = response.text || "[]";
-    
-    // Attempt to clean and find JSON array in the text (since search tool might add extra text)
-    const jsonMatch = text.match(/\[.*\]/s);
-    if (jsonMatch) {
-      const places = JSON.parse(jsonMatch[0]) as NearbyPlace[];
-      
-      // Enforce short description client-side to be safe
-      return places.map(p => ({
-        name: p.name,
-        description: p.description.split(' ').slice(0, 15).join(' ') + (p.description.split(' ').length > 15 ? '...' : '')
-      }));
+    if (response.text) {
+      return JSON.parse(response.text) as NearbyPlace[];
     }
-    
     return [];
-  } catch (error: any) {
-    // If it's a quota error, silence it to avoid alarming console logs for non-critical features
-    if (error.message?.includes("429") || error.status === 429) {
-       console.warn("Nearby places skipped due to rate limit.");
-    } else {
-       console.error("Nearby error:", error);
-    }
+  } catch (error) {
+    console.warn("Failed to get nearby places:", error);
     return [];
   }
 }
