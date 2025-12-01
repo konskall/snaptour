@@ -23,7 +23,8 @@ let decodingContext: AudioContext | null = null;
 const getDecodingContext = () => {
   if (!decodingContext) {
     // Use a standard sample rate, though decodeAudioData usually handles resampling
-    decodingContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+    // Removed strict sampleRate constraint for iOS compatibility
+    decodingContext = new (window.AudioContext || (window as any).webkitAudioContext)();
   }
   return decodingContext;
 };
@@ -131,7 +132,7 @@ export async function getLandmarkDetails(landmarkName: string, language: string)
 
 // Helper function to split text into safe chunks for TTS
 // EXPORTED so UI can use it for progressive loading
-export function splitTextForTTS(text: string, maxChunkSize: number = 300): string[] {
+export function splitTextForTTS(text: string, maxChunkSize: number = 150): string[] {
   // Regex to split by sentence endings (. ! ?), keeping the delimiter
   const sentences = text.match(/[^.!?]+[.!?]+(\s+|$)|[^.!?]+$/g) || [text];
   
@@ -152,7 +153,7 @@ export function splitTextForTTS(text: string, maxChunkSize: number = 300): strin
 }
 
 // 3. Generate speech for a single chunk (Optimized for speed/progressive loading)
-export async function generateAudioChunk(text: string): Promise<AudioBuffer | null> {
+export async function generateAudioChunk(text: string, attempt = 1): Promise<AudioBuffer | null> {
   try {
     const response = await getAI().models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
@@ -179,7 +180,15 @@ export async function generateAudioChunk(text: string): Promise<AudioBuffer | nu
       1
     );
   } catch (error: any) {
-    console.error("Error generating audio chunk:", error);
+    console.error(`Error generating audio chunk (Attempt ${attempt}):`, error);
+    
+    // Simple retry logic for 500/network errors
+    if (attempt < 2) {
+        console.log("Retrying audio generation...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return generateAudioChunk(text, attempt + 1);
+    }
+    
     return null;
   }
 }
