@@ -297,6 +297,9 @@ const App: React.FC = () => {
 
       setIsGeneratingAudio(true);
       try {
+        // Add a small delay to avoid hitting rate limits immediately after fetching details
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         const audioBuffer = await generateNarrationAudio(detailedInfo);
         if (!audioBuffer) {
            setIsAudioUnavailable(true);
