@@ -203,19 +203,22 @@ const App: React.FC = () => {
     if (!result || isGeneratingAudio) return;
     
     setIsGeneratingAudio(true);
-    setIsAudioUnavailable(false); // Reset error state on retry
+    setIsAudioUnavailable(false); // Reset error state
 
     try {
       const audioBuffer = await generateNarrationAudio(result.detailedInfo);
       
       if (audioBuffer) {
-        setResult(prev => prev ? { ...prev, audioBuffer } : null);
+        setResult(prev => prev ? { ...prev, audioBuffer, nativeTTSFallback: false } : null);
       } else {
-        setIsAudioUnavailable(true);
+        // AI failed silently (returned null), fallback to native
+        console.warn("AI Audio failed, switching to Native TTS");
+        setResult(prev => prev ? { ...prev, nativeTTSFallback: true } : null);
       }
     } catch (error) {
-      console.error("Audio generation failed:", error);
-      setIsAudioUnavailable(true);
+      console.warn("Audio generation API failed, switching to Native TTS:", error);
+      // Fallback to Native TTS on any error (429, 503, etc.)
+      setResult(prev => prev ? { ...prev, nativeTTSFallback: true } : null);
     } finally {
       setIsGeneratingAudio(false);
     }
@@ -227,7 +230,8 @@ const App: React.FC = () => {
       landmarkName: item.landmarkName,
       detailedInfo: textContent,
       groundingSources: item.groundingSources || [],
-      audioBuffer: null 
+      audioBuffer: null,
+      nativeTTSFallback: false
     });
     setSelectedImage(`data:image/jpeg;base64,${item.thumbnail}`);
     setState(AppState.SHOWING_RESULT);
@@ -285,7 +289,8 @@ const App: React.FC = () => {
         landmarkName,
         detailedInfo,
         groundingSources: sources,
-        audioBuffer: null
+        audioBuffer: null,
+        nativeTTSFallback: false
       });
       setState(AppState.SHOWING_RESULT);
 
