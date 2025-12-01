@@ -138,74 +138,71 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, t, 
   useEffect(() => {
     if (!isPlaying) return; // Do nothing if paused
 
-    const playCurrentSegment = async () => {
-      // Check if finished
-      if (currentSegmentIndex >= segments.length) {
-        setIsPlaying(false);
-        setCurrentSegmentIndex(0);
-        pauseTimeRef.current = 0;
-        return;
+    // Check if finished
+    if (currentSegmentIndex >= segments.length) {
+      setIsPlaying(false);
+      setCurrentSegmentIndex(0);
+      pauseTimeRef.current = 0;
+      return;
+    }
+
+    const segment = segments[currentSegmentIndex];
+
+    // If already playing this segment physically, do nothing
+    if (sourceNodeRef.current) return;
+
+    if (segment.status === 'ready' && segment.buffer) {
+      // --- READY TO PLAY ---
+      setIsBuffering(false);
+      
+      const ctx = getAudioContext();
+      // Note: We do NOT await resume() here to avoid race conditions. 
+      // Context resumption is handled in toggleAudio handler.
+
+      const source = ctx.createBufferSource();
+      source.buffer = segment.buffer;
+      source.connect(ctx.destination);
+      
+      // Handle offset (resume from pause)
+      const offset = pauseTimeRef.current;
+      source.start(0, offset);
+      
+      startTimeRef.current = ctx.currentTime - offset;
+      sourceNodeRef.current = source;
+
+      // PRELOAD NEXT SEGMENT
+      if (currentSegmentIndex + 1 < segments.length) {
+          loadSegment(currentSegmentIndex + 1, segments);
       }
 
-      const segment = segments[currentSegmentIndex];
-
-      // If already playing this segment physically, do nothing
-      if (sourceNodeRef.current) return;
-
-      if (segment.status === 'ready' && segment.buffer) {
-        // --- READY TO PLAY ---
-        setIsBuffering(false);
-        
-        const ctx = getAudioContext();
-        if (ctx.state === 'suspended') await ctx.resume();
-
-        const source = ctx.createBufferSource();
-        source.buffer = segment.buffer;
-        source.connect(ctx.destination);
-        
-        // Handle offset (resume from pause)
-        const offset = pauseTimeRef.current;
-        source.start(0, offset);
-        
-        startTimeRef.current = ctx.currentTime - offset;
-        sourceNodeRef.current = source;
-
-        // PRELOAD NEXT SEGMENT
-        if (currentSegmentIndex + 1 < segments.length) {
-            loadSegment(currentSegmentIndex + 1, segments);
+      // Handle End of Segment
+      source.onended = () => {
+        sourceNodeRef.current = null;
+        // Only advance if we are still "playing" state (not paused by user)
+        // We check the ref inside the callback to be safe, but react state update will trigger re-run
+        if (isMountedRef.current) {
+           // Reset pause time for next segment
+           pauseTimeRef.current = 0;
+           // Move to next index -> This triggers the Effect again!
+           setCurrentSegmentIndex(prev => prev + 1);
         }
+      };
 
-        // Handle End of Segment
-        source.onended = () => {
-          sourceNodeRef.current = null;
-          // Only advance if we are still "playing" state (not paused by user)
-          // We check the ref inside the callback to be safe, but react state update will trigger re-run
-          if (isMountedRef.current) {
-             // Reset pause time for next segment
-             pauseTimeRef.current = 0;
-             // Move to next index -> This triggers the Effect again!
-             setCurrentSegmentIndex(prev => prev + 1);
-          }
-        };
-
-      } else if (segment.status === 'pending') {
-        // --- NEED TO LOAD ---
-        setIsBuffering(true);
-        loadSegment(currentSegmentIndex, segments);
-      } else if (segment.status === 'loading') {
-        // --- WAITING FOR NETWORK ---
-        setIsBuffering(true);
-      } else if (segment.status === 'error') {
-        // --- ERROR, SKIP ---
-        setCurrentSegmentIndex(prev => prev + 1);
-      }
-    };
-
-    playCurrentSegment();
+    } else if (segment.status === 'pending') {
+      // --- NEED TO LOAD ---
+      setIsBuffering(true);
+      loadSegment(currentSegmentIndex, segments);
+    } else if (segment.status === 'loading') {
+      // --- WAITING FOR NETWORK ---
+      setIsBuffering(true);
+    } else if (segment.status === 'error') {
+      // --- ERROR, SKIP ---
+      setCurrentSegmentIndex(prev => prev + 1);
+    }
 
   }, [isPlaying, currentSegmentIndex, segments]); // Re-run when these change
 
-  const toggleAudio = () => {
+  const toggleAudio = async () => {
     if (isPlaying) {
       // PAUSE
       if (sourceNodeRef.current && audioContextRef.current) {
@@ -220,6 +217,15 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, t, 
       setIsBuffering(false);
     } else {
       // PLAY
+      // Ensure context is running (required for iOS/Autoplay policies)
+      const ctx = getAudioContext();
+      if (ctx.state === 'suspended') {
+        try {
+          await ctx.resume();
+        } catch (e) {
+          console.error("Failed to resume audio context", e);
+        }
+      }
       setIsPlaying(true);
     }
   };
