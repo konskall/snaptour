@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Play, Pause, ExternalLink, MapPin, Sparkles, Loader2, Share2, Check, MessageCircle, Map as MapIcon, Compass, ChevronDown, ChevronUp, VolumeX } from 'lucide-react';
+import { Play, Pause, ExternalLink, MapPin, Sparkles, Loader2, Share2, Check, MessageCircle, Map as MapIcon, Compass, ChevronDown, ChevronUp, VolumeX, RefreshCcw } from 'lucide-react';
 import { AnalysisResult, Translation, NearbyPlace } from '../types';
 import { getNearbyPlaces } from '../services/geminiService';
 
@@ -7,13 +7,14 @@ interface TourCardProps {
   result: AnalysisResult;
   onReset: () => void;
   onChat: () => void;
+  onGenerateAudio: () => void;
   t: Translation;
   isAudioLoading?: boolean;
   isAudioUnavailable?: boolean;
   langCode?: string;
 }
 
-export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, t, isAudioLoading = false, isAudioUnavailable = false, langCode = 'en' }) => {
+export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onGenerateAudio, t, isAudioLoading = false, isAudioUnavailable = false, langCode = 'en' }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [justShared, setJustShared] = useState(false);
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
@@ -43,6 +44,23 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, t, 
     };
     fetchNearby();
   }, [result.landmarkName, langCode]);
+
+  // Handle Play/Pause and Generation
+  const handleAudioClick = async () => {
+    if (isAudioLoading) return;
+
+    // If no buffer, generate it first
+    if (!result.audioBuffer) {
+        onGenerateAudio();
+        return;
+    }
+
+    if (isPlaying) {
+      pauseAudio();
+    } else {
+      playAudio();
+    }
+  };
 
   const playAudio = async () => {
     if (!result.audioBuffer) return;
@@ -82,13 +100,18 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, t, 
     }
   };
 
-  const toggleAudio = () => {
-    if (isPlaying) {
-      pauseAudio();
-    } else {
-      playAudio();
+  // If audio buffer arrives while we were waiting (loading), play it automatically
+  useEffect(() => {
+    if (result.audioBuffer && !isPlaying && !sourceNodeRef.current) {
+       // Optional: We can auto-play here if desired, but user interaction policies might block it 
+       // unless the generation was triggered by a recent click.
+       // For now, let's let the user click play to be safe and avoid sudden noise.
+       // However, if the user clicked "Play" to generate, they expect it to play.
+       // Since 'onGenerateAudio' is triggered by click, we are inside a user interaction chain? 
+       // No, async breaks it. Best to let user click play or handle it carefully.
+       // We'll leave it manual for max stability.
     }
-  };
+  }, [result.audioBuffer]);
 
   const handleShare = async () => {
     const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(result.landmarkName)}`;
@@ -166,21 +189,28 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, t, 
                      <Loader2 size={20} className="text-indigo-200 animate-spin" />
                    </div>
                 ) : isAudioUnavailable ? (
-                   <div className="w-12 h-12 rounded-full bg-slate-800 border border-red-900/50 flex items-center justify-center group relative cursor-help">
-                     <VolumeX size={20} className="text-red-400" />
+                   <button 
+                     onClick={onGenerateAudio}
+                     className="w-12 h-12 rounded-full bg-slate-800 border border-red-900/50 flex items-center justify-center group relative cursor-pointer hover:bg-slate-700 transition-colors"
+                   >
+                     <RefreshCcw size={18} className="text-red-400" />
                      {/* Tooltip */}
                      <div className="absolute top-full right-0 mt-2 w-32 bg-slate-900 text-white text-[10px] p-2 rounded-lg border border-slate-700 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 text-center">
                        {t.audioLimit}
                      </div>
-                   </div>
-                ) : result.audioBuffer ? (
+                   </button>
+                ) : (
                   <button
-                    onClick={toggleAudio}
+                    onClick={handleAudioClick}
                     className="w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 transition-all hover:scale-105"
                   >
-                    {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-1" />}
+                    {result.audioBuffer ? (
+                        isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-1" />
+                    ) : (
+                        <Play size={20} fill="currentColor" className="ml-1 opacity-70" />
+                    )}
                   </button>
-                ) : null}
+                )}
               </div>
             </div>
           </div>
