@@ -132,28 +132,35 @@ export async function getLandmarkDetails(landmarkName: string, language: string)
 
 // Helper function to split text into safe chunks for TTS
 // EXPORTED so UI can use it for progressive loading
-export function splitTextForTTS(text: string, maxChunkSize: number = 150): string[] {
-  // Regex to split by sentence endings (. ! ?), keeping the delimiter
+export function splitTextForTTS(text: string, maxChunkSize: number = 100): string[] {
+  // Aggressive splitting to prevent "JSON Parse Error" on large payloads
+  // 1. Split by sentence endings first
   const sentences = text.match(/[^.!?]+[.!?]+(\s+|$)|[^.!?]+$/g) || [text];
   
   const chunks: string[] = [];
-  let currentChunk = "";
-
+  
   for (const sentence of sentences) {
-    if ((currentChunk + sentence).length > maxChunkSize) {
-      if (currentChunk.trim()) chunks.push(currentChunk.trim());
-      currentChunk = sentence;
+    // If sentence itself is too long, split by comma or space
+    if (sentence.length > maxChunkSize) {
+       const subParts = sentence.match(new RegExp(`.{1,${maxChunkSize}}(\\s|$)`, 'g')) || [sentence];
+       subParts.forEach(part => {
+         if (part.trim()) chunks.push(part.trim());
+       });
     } else {
-      currentChunk += sentence;
+       chunks.push(sentence.trim());
     }
   }
-  if (currentChunk.trim()) chunks.push(currentChunk.trim());
   
-  return chunks;
+  return chunks.filter(c => c.length > 0);
 }
 
 // 3. Generate speech for a single chunk (Optimized for speed/progressive loading)
 export async function generateAudioChunk(text: string, attempt = 1): Promise<AudioBuffer | null> {
+  // Hard limit on text length to prevent backend deserialization errors
+  if (text.length > 200) {
+     text = text.substring(0, 199);
+  }
+
   try {
     const response = await getAI().models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
@@ -182,10 +189,11 @@ export async function generateAudioChunk(text: string, attempt = 1): Promise<Aud
   } catch (error: any) {
     console.error(`Error generating audio chunk (Attempt ${attempt}):`, error);
     
-    // Simple retry logic for 500/network errors
-    if (attempt < 2) {
-        console.log("Retrying audio generation...");
-        await new Promise(resolve => setTimeout(resolve, 1000));
+    // Aggressive retry logic for 500/network/syntax errors
+    // We try up to 3 times because the API is experimental and sometimes flakes out
+    if (attempt < 3) {
+        // Linear backoff: 500ms, 1000ms
+        await new Promise(resolve => setTimeout(resolve, attempt * 500));
         return generateAudioChunk(text, attempt + 1);
     }
     
