@@ -25,6 +25,9 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
   const startTimeRef = useRef<number>(0);
   const pauseTimeRef = useRef<number>(0);
+  
+  // LOCK: Prevents rapid clicking from creating overlapping audio streams
+  const isAudioOpInProgress = useRef<boolean>(false);
 
   // Native TTS Ref to prevent garbage collection and allow pause/resume
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -53,34 +56,27 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   const speakNative = () => {
      if (!result.detailedInfo) return;
 
-     // Case 1: Resuming from Pause (Works well on Desktop, iffy on iOS but worth trying)
      if (window.speechSynthesis.paused && window.speechSynthesis.speaking) {
          window.speechSynthesis.resume();
          setIsPlaying(true);
          return;
      }
 
-     // Case 2: Starting Fresh
-     // iOS Fix: Cancel before speaking to clear any stuck state
      window.speechSynthesis.cancel(); 
      
      const utterance = new SpeechSynthesisUtterance(result.detailedInfo);
-     utteranceRef.current = utterance; // Keep reference to prevent GC
+     utteranceRef.current = utterance;
 
-     // iOS tends to speak fast, slow it down slightly
      utterance.rate = 0.9; 
      utterance.pitch = 1.0;
 
-     // Function to select voice and speak
      const setVoiceAndSpeak = () => {
          const voices = window.speechSynthesis.getVoices();
-         // Loose matching for iOS (e.g. 'el-GR' vs 'el')
          const voice = voices.find(v => v.lang.startsWith(langCode)) || voices.find(v => v.lang.includes(langCode));
          if (voice) {
             utterance.voice = voice;
          }
          
-         // Event handlers
          utterance.onend = () => {
              setIsPlaying(false);
              utteranceRef.current = null;
@@ -99,18 +95,15 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
          window.speechSynthesis.speak(utterance);
      };
 
-     // Handle Voice Loading (iOS/Chrome async loading)
      if (window.speechSynthesis.getVoices().length === 0) {
-         // Voice list not ready yet, wait for it
          window.speechSynthesis.onvoiceschanged = () => {
-             window.speechSynthesis.onvoiceschanged = null; // Remove listener
+             window.speechSynthesis.onvoiceschanged = null;
              setVoiceAndSpeak();
          };
      } else {
          setVoiceAndSpeak();
      }
      
-     // Optimistically set playing to give immediate feedback
      setIsPlaying(true);
   };
 
@@ -121,60 +114,91 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
     }
   };
 
-  // --- AI AUDIO LOGIC ---
+  // --- AI AUDIO LOGIC (STRICT CLEANUP) ---
+
+  // Helper: Aggressively stop and disconnect the current source
+  const stopAiAudio = () => {
+    if (sourceNodeRef.current) {
+        const source = sourceNodeRef.current;
+        // 1. Remove listener to prevent triggering "onended" logic which might reset state incorrectly
+        source.onended = null;
+        
+        // 2. Try stopping
+        try {
+            source.stop();
+        } catch (e) {
+            // Ignore errors if already stopped/not started
+        }
+        
+        // 3. Disconnect
+        try {
+            source.disconnect();
+        } catch (e) {}
+        
+        // 4. Nullify reference
+        sourceNodeRef.current = null;
+    }
+  };
 
   const playAudio = async () => {
     if (!result.audioBuffer) return;
     
-    // SAFETY: Stop any existing source to prevent "double voice" overlap
-    if (sourceNodeRef.current) {
-        try { sourceNodeRef.current.stop(); } catch(e) {}
-        sourceNodeRef.current.disconnect();
-        sourceNodeRef.current = null;
+    // GUARD: If an operation is already in progress, ignore this click
+    if (isAudioOpInProgress.current) return;
+    isAudioOpInProgress.current = true;
+
+    try {
+        // STEP 1: Nuclear cleanup of any existing audio
+        stopAiAudio();
+
+        const ctx = getAudioContext();
+        if (ctx.state === 'suspended') {
+          await ctx.resume();
+        }
+
+        // STEP 2: Create new source
+        const source = ctx.createBufferSource();
+        source.buffer = result.audioBuffer;
+        source.connect(ctx.destination);
+        
+        // STEP 3: Calculate offset
+        const offset = pauseTimeRef.current % result.audioBuffer.duration;
+        
+        // STEP 4: Start
+        source.start(0, offset);
+        
+        // STEP 5: Update References
+        startTimeRef.current = ctx.currentTime - offset;
+        sourceNodeRef.current = source;
+        setIsPlaying(true);
+
+        // STEP 6: Handle natural finish
+        source.onended = () => {
+           setIsPlaying(false);
+           pauseTimeRef.current = 0;
+           sourceNodeRef.current = null;
+        };
+
+    } catch (error) {
+        console.error("Audio Playback Error:", error);
+        setIsPlaying(false);
+    } finally {
+        // Release lock
+        isAudioOpInProgress.current = false;
     }
-
-    const ctx = getAudioContext();
-    if (ctx.state === 'suspended') {
-      await ctx.resume();
-    }
-
-    // Create a new source node
-    const source = ctx.createBufferSource();
-    source.buffer = result.audioBuffer;
-    source.connect(ctx.destination);
-    
-    // Determine start time based on pause. 
-    // Modulo ensures we don't start past the end if something went wrong with calculations.
-    const offset = pauseTimeRef.current % result.audioBuffer.duration;
-    
-    source.start(0, offset);
-    
-    startTimeRef.current = ctx.currentTime - offset;
-    sourceNodeRef.current = source;
-    setIsPlaying(true);
-
-    // This handles NATURAL finish (reaching the end of the file)
-    source.onended = () => {
-       setIsPlaying(false);
-       pauseTimeRef.current = 0; // Reset only on natural finish
-       sourceNodeRef.current = null;
-    };
   };
 
   const pauseAudio = () => {
+    // GUARD: If an operation is already in progress, ignore
+    if (isAudioOpInProgress.current) return;
+    
     if (sourceNodeRef.current && audioContextRef.current) {
-      // CRITICAL: Remove onended listener. 
-      // If we don't do this, stop() triggers onended, which resets pauseTimeRef to 0, causing restart on next play.
-      sourceNodeRef.current.onended = null;
-      
-      sourceNodeRef.current.stop();
-      sourceNodeRef.current.disconnect();
-      
-      // Calculate where we stopped
-      pauseTimeRef.current = audioContextRef.current.currentTime - startTimeRef.current;
-      
-      sourceNodeRef.current = null;
-      setIsPlaying(false);
+       // Capture current time BEFORE stopping
+       pauseTimeRef.current = audioContextRef.current.currentTime - startTimeRef.current;
+       
+       // Stop audio
+       stopAiAudio();
+       setIsPlaying(false);
     }
   };
 
@@ -203,7 +227,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
         return;
     }
 
-    // Generate if nothing exists (App will handle fallback if it fails)
+    // Generate if nothing exists
     onGenerateAudio();
   };
 
@@ -211,28 +235,22 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   useEffect(() => {
     if (isAudioLoading) return;
 
-    // AI Audio Auto-play (Safe on most devices if context is resumed)
-    // We check !isPlaying and !sourceNodeRef.current to avoid re-triggering if already playing
-    if (result.audioBuffer && !isPlaying && !sourceNodeRef.current) {
+    // AI Audio Auto-play
+    // We strictly check lock and references to avoid double-play
+    if (result.audioBuffer && !isPlaying && !sourceNodeRef.current && !isAudioOpInProgress.current) {
        playAudio();
     } 
-    
-    // NOTE: Native TTS Auto-play removed for iOS compatibility.
-    
   }, [result.audioBuffer, isAudioLoading]);
 
   // Clean up on unmount or when result changes
   useEffect(() => {
     return () => {
-      if (sourceNodeRef.current) {
-        sourceNodeRef.current.onended = null; // Prevent callback
-        try { sourceNodeRef.current.stop(); } catch(e) {}
-      }
+      stopAiAudio();
       if (audioContextRef.current) {
         audioContextRef.current.close();
         audioContextRef.current = null;
       }
-      window.speechSynthesis.cancel(); // Stop native on unmount
+      window.speechSynthesis.cancel();
       utteranceRef.current = null;
     };
   }, []);
@@ -241,11 +259,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   useEffect(() => {
       setIsPlaying(false);
       pauseTimeRef.current = 0;
-      if (sourceNodeRef.current) {
-          sourceNodeRef.current.onended = null;
-          try { sourceNodeRef.current.stop(); } catch(e) {}
-          sourceNodeRef.current = null;
-      }
+      stopAiAudio();
       window.speechSynthesis.cancel();
       utteranceRef.current = null;
   }, [result.landmarkName]);
