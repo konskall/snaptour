@@ -1,4 +1,4 @@
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { decodeBase64, decodeAudioData } from "./audioUtils";
 import { GroundingChunk, LandmarkIdentification, ChatMessage, NearbyPlace } from "../types";
 
