@@ -126,6 +126,13 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   const playAudio = async () => {
     if (!result.audioBuffer) return;
     
+    // SAFETY: Stop any existing source to prevent "double voice" overlap
+    if (sourceNodeRef.current) {
+        try { sourceNodeRef.current.stop(); } catch(e) {}
+        sourceNodeRef.current.disconnect();
+        sourceNodeRef.current = null;
+    }
+
     const ctx = getAudioContext();
     if (ctx.state === 'suspended') {
       await ctx.resume();
@@ -136,26 +143,36 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
     source.buffer = result.audioBuffer;
     source.connect(ctx.destination);
     
-    // Determine start time based on pause
+    // Determine start time based on pause. 
+    // Modulo ensures we don't start past the end if something went wrong with calculations.
     const offset = pauseTimeRef.current % result.audioBuffer.duration;
+    
     source.start(0, offset);
     
     startTimeRef.current = ctx.currentTime - offset;
     sourceNodeRef.current = source;
     setIsPlaying(true);
 
+    // This handles NATURAL finish (reaching the end of the file)
     source.onended = () => {
-       // Only reset if we naturally finished
        setIsPlaying(false);
-       pauseTimeRef.current = 0;
+       pauseTimeRef.current = 0; // Reset only on natural finish
+       sourceNodeRef.current = null;
     };
   };
 
   const pauseAudio = () => {
     if (sourceNodeRef.current && audioContextRef.current) {
+      // CRITICAL: Remove onended listener. 
+      // If we don't do this, stop() triggers onended, which resets pauseTimeRef to 0, causing restart on next play.
+      sourceNodeRef.current.onended = null;
+      
       sourceNodeRef.current.stop();
       sourceNodeRef.current.disconnect();
+      
+      // Calculate where we stopped
       pauseTimeRef.current = audioContextRef.current.currentTime - startTimeRef.current;
+      
       sourceNodeRef.current = null;
       setIsPlaying(false);
     }
@@ -194,14 +211,13 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   useEffect(() => {
     if (isAudioLoading) return;
 
-    // AI Audio Auto-play (Safe on most devices if context is resumed, but iOS might block it. 
-    // We leave it for AI audio as it's better UX if it works)
+    // AI Audio Auto-play (Safe on most devices if context is resumed)
+    // We check !isPlaying and !sourceNodeRef.current to avoid re-triggering if already playing
     if (result.audioBuffer && !isPlaying && !sourceNodeRef.current) {
        playAudio();
     } 
     
-    // NOTE: Native TTS Auto-play removed for iOS compatibility. 
-    // iOS Safari blocks SpeechSynthesis unless triggered by a direct click event.
+    // NOTE: Native TTS Auto-play removed for iOS compatibility.
     
   }, [result.audioBuffer, isAudioLoading]);
 
@@ -209,10 +225,12 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   useEffect(() => {
     return () => {
       if (sourceNodeRef.current) {
-        sourceNodeRef.current.stop();
+        sourceNodeRef.current.onended = null; // Prevent callback
+        try { sourceNodeRef.current.stop(); } catch(e) {}
       }
       if (audioContextRef.current) {
         audioContextRef.current.close();
+        audioContextRef.current = null;
       }
       window.speechSynthesis.cancel(); // Stop native on unmount
       utteranceRef.current = null;
@@ -223,6 +241,11 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   useEffect(() => {
       setIsPlaying(false);
       pauseTimeRef.current = 0;
+      if (sourceNodeRef.current) {
+          sourceNodeRef.current.onended = null;
+          try { sourceNodeRef.current.stop(); } catch(e) {}
+          sourceNodeRef.current = null;
+      }
       window.speechSynthesis.cancel();
       utteranceRef.current = null;
   }, [result.landmarkName]);
