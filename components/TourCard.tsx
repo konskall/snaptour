@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Play, Pause, ExternalLink, MapPin, Sparkles, Loader2, Share2, Check, MessageCircle, Map as MapIcon, Compass, ChevronDown, ChevronUp, VolumeX, RefreshCcw } from 'lucide-react';
+import { Play, Pause, ExternalLink, MapPin, Sparkles, Loader2, Share2, Check, MessageCircle, Map as MapIcon, Compass, ChevronDown, ChevronUp, VolumeX, RefreshCcw, Volume2 } from 'lucide-react';
 import { AnalysisResult, Translation, NearbyPlace } from '../types';
 import { getNearbyPlaces } from '../services/geminiService';
 
@@ -19,7 +19,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   const [justShared, setJustShared] = useState(false);
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
-  const [isSourcesOpen, setIsSourcesOpen] = useState(false); // State for dropdown
+  const [isSourcesOpen, setIsSourcesOpen] = useState(false); 
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
@@ -46,20 +46,53 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   }, [result.landmarkName, langCode]);
 
   // Handle Play/Pause and Generation
+  const speakNative = () => {
+     if (!result.detailedInfo) return;
+     window.speechSynthesis.cancel(); // Stop current speech
+     
+     const utterance = new SpeechSynthesisUtterance(result.detailedInfo);
+     const voices = window.speechSynthesis.getVoices();
+     // Simple matching logic for voice
+     const voice = voices.find(v => v.lang.startsWith(langCode)) || voices.find(v => v.lang.includes(langCode));
+     if (voice) utterance.voice = voice;
+     
+     utterance.onend = () => setIsPlaying(false);
+     utterance.onerror = () => setIsPlaying(false);
+     
+     window.speechSynthesis.speak(utterance);
+     setIsPlaying(true);
+  };
+
+  const stopNative = () => {
+    window.speechSynthesis.cancel();
+    setIsPlaying(false);
+  };
+
   const handleAudioClick = async () => {
     if (isAudioLoading) return;
 
-    // If no buffer, generate it first
-    if (!result.audioBuffer) {
-        onGenerateAudio();
+    // Handle Native TTS logic
+    if (result.nativeTTSFallback) {
+        if (isPlaying) {
+            stopNative();
+        } else {
+            speakNative();
+        }
         return;
     }
 
-    if (isPlaying) {
-      pauseAudio();
-    } else {
-      playAudio();
+    // Handle AI Audio logic
+    if (result.audioBuffer) {
+        if (isPlaying) {
+            pauseAudio();
+        } else {
+            playAudio();
+        }
+        return;
     }
+
+    // Generate if nothing exists (App will handle fallback if it fails)
+    onGenerateAudio();
   };
 
   const playAudio = async () => {
@@ -100,18 +133,19 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
     }
   };
 
-  // If audio buffer arrives while we were waiting (loading), play it automatically
+  // AUTO-PLAY: If audio buffer OR fallback arrives while not playing, play it automatically
   useEffect(() => {
+    if (isAudioLoading) return;
+
+    // If we just got a buffer and not playing
     if (result.audioBuffer && !isPlaying && !sourceNodeRef.current) {
-       // Optional: We can auto-play here if desired, but user interaction policies might block it 
-       // unless the generation was triggered by a recent click.
-       // For now, let's let the user click play to be safe and avoid sudden noise.
-       // However, if the user clicked "Play" to generate, they expect it to play.
-       // Since 'onGenerateAudio' is triggered by click, we are inside a user interaction chain? 
-       // No, async breaks it. Best to let user click play or handle it carefully.
-       // We'll leave it manual for max stability.
+       playAudio();
+    } 
+    // If we just switched to fallback and not playing
+    else if (result.nativeTTSFallback && !isPlaying && !window.speechSynthesis.speaking) {
+       speakNative();
     }
-  }, [result.audioBuffer]);
+  }, [result.audioBuffer, result.nativeTTSFallback, isAudioLoading]);
 
   const handleShare = async () => {
     const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(result.landmarkName)}`;
@@ -145,6 +179,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
+      window.speechSynthesis.cancel(); // Stop native on unmount
     };
   }, []);
 
@@ -188,23 +223,18 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                    <div className="w-12 h-12 rounded-full bg-indigo-600/50 border border-indigo-500/50 flex items-center justify-center">
                      <Loader2 size={20} className="text-indigo-200 animate-spin" />
                    </div>
-                ) : isAudioUnavailable ? (
-                   <button 
-                     onClick={onGenerateAudio}
-                     className="w-12 h-12 rounded-full bg-slate-800 border border-red-900/50 flex items-center justify-center group relative cursor-pointer hover:bg-slate-700 transition-colors"
-                   >
-                     <RefreshCcw size={18} className="text-red-400" />
-                     {/* Tooltip */}
-                     <div className="absolute top-full right-0 mt-2 w-32 bg-slate-900 text-white text-[10px] p-2 rounded-lg border border-slate-700 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 text-center">
-                       {t.audioLimit}
-                     </div>
-                   </button>
                 ) : (
                   <button
                     onClick={handleAudioClick}
-                    className="w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 transition-all hover:scale-105"
+                    className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 ${
+                        result.nativeTTSFallback 
+                            ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-500/30' 
+                            : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/30'
+                    }`}
                   >
-                    {result.audioBuffer ? (
+                    {result.nativeTTSFallback ? (
+                        isPlaying ? <Pause size={20} fill="currentColor" /> : <Volume2 size={20} className="ml-0.5" />
+                    ) : result.audioBuffer ? (
                         isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-1" />
                     ) : (
                         <Play size={20} fill="currentColor" className="ml-1 opacity-70" />
