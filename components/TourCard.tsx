@@ -26,6 +26,9 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   const startTimeRef = useRef<number>(0);
   const pauseTimeRef = useRef<number>(0);
 
+  // Native TTS Ref to prevent garbage collection and allow pause/resume
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
   // Initialize audio context lazily
   const getAudioContext = () => {
     if (!audioContextRef.current) {
@@ -45,55 +48,66 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
     fetchNearby();
   }, [result.landmarkName, langCode]);
 
-  // Handle Play/Pause and Generation
+  // --- NATIVE TTS LOGIC ---
+
   const speakNative = () => {
      if (!result.detailedInfo) return;
-     window.speechSynthesis.cancel(); // Stop current speech
+
+     // Case 1: Resuming from Pause
+     if (window.speechSynthesis.paused && window.speechSynthesis.speaking) {
+         window.speechSynthesis.resume();
+         setIsPlaying(true);
+         return;
+     }
+
+     // Case 2: Starting Fresh
+     window.speechSynthesis.cancel(); // Clear any pending
      
      const utterance = new SpeechSynthesisUtterance(result.detailedInfo);
-     const voices = window.speechSynthesis.getVoices();
-     // Simple matching logic for voice
-     const voice = voices.find(v => v.lang.startsWith(langCode)) || voices.find(v => v.lang.includes(langCode));
-     if (voice) utterance.voice = voice;
+     utteranceRef.current = utterance; // Keep reference to prevent GC
+
+     // Setup Voice
+     const loadVoice = () => {
+         const voices = window.speechSynthesis.getVoices();
+         const voice = voices.find(v => v.lang.startsWith(langCode)) || voices.find(v => v.lang.includes(langCode));
+         if (voice) utterance.voice = voice;
+     };
+
+     loadVoice();
+     // Chrome loads voices asynchronously
+     if (window.speechSynthesis.getVoices().length === 0) {
+         window.speechSynthesis.onvoiceschanged = loadVoice;
+     }
      
-     utterance.onend = () => setIsPlaying(false);
-     utterance.onerror = () => setIsPlaying(false);
+     utterance.onend = () => {
+         setIsPlaying(false);
+         utteranceRef.current = null;
+     };
+     
+     utterance.onerror = (e) => {
+         console.error("TTS Error", e);
+         setIsPlaying(false);
+         utteranceRef.current = null;
+     };
+
+     // Only update state to playing if we actually start
+     utterance.onstart = () => {
+         setIsPlaying(true);
+     };
      
      window.speechSynthesis.speak(utterance);
+     // Force state update in case onstart is delayed
      setIsPlaying(true);
   };
 
-  const stopNative = () => {
-    window.speechSynthesis.cancel();
-    setIsPlaying(false);
+  const pauseNative = () => {
+    if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.pause();
+        setIsPlaying(false);
+    }
   };
 
-  const handleAudioClick = async () => {
-    if (isAudioLoading) return;
-
-    // Handle Native TTS logic
-    if (result.nativeTTSFallback) {
-        if (isPlaying) {
-            stopNative();
-        } else {
-            speakNative();
-        }
-        return;
-    }
-
-    // Handle AI Audio logic
-    if (result.audioBuffer) {
-        if (isPlaying) {
-            pauseAudio();
-        } else {
-            playAudio();
-        }
-        return;
-    }
-
-    // Generate if nothing exists (App will handle fallback if it fails)
-    onGenerateAudio();
-  };
+  // --- AI AUDIO LOGIC ---
 
   const playAudio = async () => {
     if (!result.audioBuffer) return;
@@ -133,19 +147,74 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
     }
   };
 
+  // --- CONTROLLER ---
+
+  const handleAudioClick = async () => {
+    if (isAudioLoading) return;
+
+    // Handle Native TTS logic
+    if (result.nativeTTSFallback) {
+        if (isPlaying) {
+            pauseNative();
+        } else {
+            speakNative();
+        }
+        return;
+    }
+
+    // Handle AI Audio logic
+    if (result.audioBuffer) {
+        if (isPlaying) {
+            pauseAudio();
+        } else {
+            playAudio();
+        }
+        return;
+    }
+
+    // Generate if nothing exists (App will handle fallback if it fails)
+    onGenerateAudio();
+  };
+
   // AUTO-PLAY: If audio buffer OR fallback arrives while not playing, play it automatically
   useEffect(() => {
     if (isAudioLoading) return;
 
-    // If we just got a buffer and not playing
+    // AI Audio Auto-play
     if (result.audioBuffer && !isPlaying && !sourceNodeRef.current) {
        playAudio();
     } 
-    // If we just switched to fallback and not playing
+    // Native TTS Auto-play
     else if (result.nativeTTSFallback && !isPlaying && !window.speechSynthesis.speaking) {
-       speakNative();
+       // Small timeout ensures voices are ready and previous cancel() calls are processed
+       setTimeout(() => {
+           speakNative();
+       }, 100);
     }
   }, [result.audioBuffer, result.nativeTTSFallback, isAudioLoading]);
+
+  // Clean up on unmount or when result changes
+  useEffect(() => {
+    return () => {
+      if (sourceNodeRef.current) {
+        sourceNodeRef.current.stop();
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+      window.speechSynthesis.cancel(); // Stop native on unmount
+      utteranceRef.current = null;
+    };
+  }, []);
+
+  // When result changes (new scan), stop everything and reset
+  useEffect(() => {
+      setIsPlaying(false);
+      pauseTimeRef.current = 0;
+      window.speechSynthesis.cancel();
+      utteranceRef.current = null;
+  }, [result.landmarkName]);
+
 
   const handleShare = async () => {
     const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(result.landmarkName)}`;
@@ -170,18 +239,6 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
       }
     }
   };
-
-  useEffect(() => {
-    return () => {
-      if (sourceNodeRef.current) {
-        sourceNodeRef.current.stop();
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-      window.speechSynthesis.cancel(); // Stop native on unmount
-    };
-  }, []);
 
   // Filter out unique links to avoid duplicates
   const uniqueSources = result.groundingSources.filter(
