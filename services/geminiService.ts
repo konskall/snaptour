@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { decodeBase64, decodeAudioData } from "./audioUtils";
+import { decodeBase64, decodeAudioData, concatenateAudioBuffers } from "./audioUtils";
 import { GroundingChunk, LandmarkIdentification, ChatMessage, NearbyPlace } from "../types";
 
 let aiInstance: GoogleGenAI | null = null;
@@ -43,9 +43,14 @@ async function retryOperation<T>(operation: () => Promise<T>, retries = 3, delay
 }
 
 // 1. Identify the landmark using gemini-2.5-flash with Google Search Grounding for ACCURACY
-export async function identifyLandmarkFromImage(base64Image: string, mimeType: string, language: string): Promise<LandmarkIdentification> {
+export async function identifyLandmarkFromImage(base64Image: string, mimeType: string, language: string, gpsCoords?: { lat: number, lng: number }): Promise<LandmarkIdentification> {
   return retryOperation(async () => {
     try {
+      // Construct GPS hint string if available
+      const locationHint = gpsCoords 
+        ? `CRITICAL LOCATION DATA: The image was taken at GPS coordinates Latitude: ${gpsCoords.lat}, Longitude: ${gpsCoords.lng}. You MUST prioritize this location data over visual ambiguity.` 
+        : "";
+
       const response = await getAI().models.generateContent({
         model: 'gemini-2.5-flash',
         contents: {
@@ -57,7 +62,9 @@ export async function identifyLandmarkFromImage(base64Image: string, mimeType: s
               },
             },
             {
-              text: `Identify this landmark precisely using Google Search to verify visual features. 
+              text: `Identify this landmark precisely. ${locationHint}
+              
+              Use Google Search to verify visual features and location. 
               Look for specific architectural details, signage, or unique characteristics to ensure accuracy.
               
               Return a STRICT JSON object (do not use Markdown code blocks) with the following structure:
@@ -83,7 +90,6 @@ export async function identifyLandmarkFromImage(base64Image: string, mimeType: s
       if (!text) throw new Error("Could not identify landmark");
       
       // Clean up the response to ensure we get valid JSON
-      // Sometimes the model wraps JSON in ```json ... ``` or adds text before/after
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       
       if (jsonMatch) {
@@ -123,17 +129,35 @@ export async function getLandmarkDetails(landmarkName: string, language: string)
   });
 }
 
-// 3. Generate speech using gemini-2.5-flash-preview-tts (TTS)
-export async function generateNarrationAudio(text: string): Promise<AudioBuffer | null> {
+// Helper function to split text into safe chunks for TTS
+// EXPORTED so UI can use it for progressive loading
+export function splitTextForTTS(text: string, maxChunkSize: number = 300): string[] {
+  // Regex to split by sentence endings (. ! ?), keeping the delimiter
+  const sentences = text.match(/[^.!?]+[.!?]+(\s+|$)|[^.!?]+$/g) || [text];
+  
+  const chunks: string[] = [];
+  let currentChunk = "";
+
+  for (const sentence of sentences) {
+    if ((currentChunk + sentence).length > maxChunkSize) {
+      if (currentChunk.trim()) chunks.push(currentChunk.trim());
+      currentChunk = sentence;
+    } else {
+      currentChunk += sentence;
+    }
+  }
+  if (currentChunk.trim()) chunks.push(currentChunk.trim());
+  
+  return chunks;
+}
+
+// 3. Generate speech for a single chunk (Optimized for speed/progressive loading)
+export async function generateAudioChunk(text: string): Promise<AudioBuffer | null> {
   try {
-    // We do NOT wrap this in retryOperation because audio failures are often due to payload size issues
-    // or strict quota limits on the preview model, which retries won't fix immediately.
-    
     const response = await getAI().models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text: text }] }],
       config: {
-        // Use string literal 'AUDIO' instead of Modality.AUDIO to avoid Vite bundling issues
         responseModalities: ['AUDIO'],
         speechConfig: {
           voiceConfig: {
@@ -144,42 +168,18 @@ export async function generateNarrationAudio(text: string): Promise<AudioBuffer 
     });
 
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) {
-        console.warn("No audio data returned from API");
-        return null;
-    }
+    if (!base64Audio) return null;
 
-    // Use shared context for decoding to avoid memory leaks/limits
+    // Decode individual chunk
     const audioContext = getDecodingContext();
-    
-    // NOTE: We do NOT call audioContext.resume() here. 
-    // Browsers block resume() if not triggered by a user gesture (click).
-    // Calling it here would hang the promise indefinitely.
-    // The AudioBuffer can be decoded even if the context is suspended.
-    // The context will be resumed in TourCard.tsx when the user clicks "Play".
-
-    const audioBuffer = await decodeAudioData(
+    return await decodeAudioData(
       decodeBase64(base64Audio),
       audioContext,
       24000,
       1
     );
-
-    return audioBuffer;
   } catch (error: any) {
-    // Specifically handle the "SyntaxError: JSON Parse error" / "Error when deserializing response data"
-    // which happens when the binary payload breaks the SDK's internal parser or backend fails.
-    if (error.message && (
-        error.message.includes("deserializing") || 
-        error.message.includes("SyntaxError") || 
-        error.message.includes("JSON Parse error") ||
-        error.code === 500
-    )) {
-        console.warn("Audio generation failed due to SDK deserialization error (likely binary size). Skipping audio.");
-        return null; // Return null gracefully so UI shows "Audio Unavailable" icon
-    }
-
-    console.error("Error generating audio:", error);
+    console.error("Error generating audio chunk:", error);
     return null;
   }
 }
@@ -212,10 +212,9 @@ export async function getChatResponse(landmarkName: string, history: ChatMessage
   }
 }
 
-// 5. Get nearby places with Google Search Grounding for accuracy
+// 5. Get nearby places with Google Search Grounding
 export async function getNearbyPlaces(landmarkName: string, language: string): Promise<NearbyPlace[]> {
   try {
-    // Use Google Search tool to ensure real places are found
     const response = await getAI().models.generateContent({
       model: "gemini-2.5-flash",
       contents: `List 3 real and interesting tourist attractions near ${landmarkName}. 
@@ -225,27 +224,20 @@ export async function getNearbyPlaces(landmarkName: string, language: string): P
       Translate the output to ${language}.`,
       config: {
         tools: [{ googleSearch: {} }],
-        // responseMimeType cannot be used with tools in some SDK versions/models, so we parse manually
       }
     });
 
     const text = response.text || "[]";
-    
-    // Attempt to clean and find JSON array in the text (since search tool might add extra text)
     const jsonMatch = text.match(/\[.*\]/s);
     if (jsonMatch) {
       const places = JSON.parse(jsonMatch[0]) as NearbyPlace[];
-      
-      // Enforce short description client-side to be safe
       return places.map(p => ({
         name: p.name,
         description: p.description.split(' ').slice(0, 15).join(' ') + (p.description.split(' ').length > 15 ? '...' : '')
       }));
     }
-    
     return [];
   } catch (error: any) {
-    // If it's a quota error, silence it to avoid alarming console logs for non-critical features
     if (error.message?.includes("429") || error.status === 429) {
        console.warn("Nearby places skipped due to rate limit.");
     } else {
