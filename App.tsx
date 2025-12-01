@@ -6,7 +6,7 @@ import { HistoryView } from './components/HistoryView';
 import { ScanningView } from './components/ScanningView';
 import { SkeletonCard } from './components/SkeletonCard';
 import { ChatView } from './components/ChatView';
-import { identifyLandmarkFromImage, getLandmarkDetails, generateNarrationAudio } from './services/geminiService';
+import { identifyLandmarkFromImage, getLandmarkDetails } from './services/geminiService';
 import { saveHistoryItem, getHistory, createThumbnail, clearHistory } from './services/storageService';
 import { AppState, AnalysisResult, LandmarkIdentification, User, HistoryItem } from './types';
 import { Loader2, Globe, History, UserCircle, LogOut, Zap, AlertTriangle, ExternalLink } from 'lucide-react';
@@ -27,8 +27,6 @@ const App: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [langCode, setLangCode] = useState<string>('en');
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
-  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
-  const [isAudioUnavailable, setIsAudioUnavailable] = useState(false);
   const [missingCreds, setMissingCreds] = useState<string[]>([]);
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
   
@@ -118,24 +116,16 @@ const App: React.FC = () => {
        setUserHistory(getHistory(mockUser.email));
     };
 
-    // 1. Critical: Check if Client ID exists. If NOT, we are likely in dev mode or not configured.
     if (!CLIENT_ID) {
       performMockLogin();
       setIsUserMenuOpen(false);
       return;
     }
 
-    // 2. Client ID exists, so we EXPECT Google Login to work.
-    // If window.google is missing, it's a network/browser loading issue or blocked by In-App Browser.
-    // We should NOT fallback to mock login here, as it confuses users (logging them in as Guest).
     if (!window.google) {
         console.error("Google Sign-In script not loaded yet.");
-        
-        // Check if we are in Instagram (which works but might be slow)
         const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
         const isInstagram = /(Instagram)/i.test(ua);
-
-        // Only show alert if it's NOT LinkedIn (Banner) AND NOT Instagram (Slow but working)
         if (!isInAppBrowser && !isInstagram) {
            alert("Google Sign-In is still initializing or blocked. Please refresh the page.");
         }
@@ -160,7 +150,7 @@ const App: React.FC = () => {
                 accessToken: tokenResponse.access_token
               };
               setUser(newUser);
-              localStorage.setItem('snaptour_user_session', JSON.stringify(newUser)); // Save session
+              localStorage.setItem('snaptour_user_session', JSON.stringify(newUser));
               setUserHistory(getHistory(userInfo.email));
             } catch (error) {
               console.error("Failed to fetch user info", error);
@@ -171,7 +161,6 @@ const App: React.FC = () => {
       client.requestAccessToken();
     } catch (err) {
       console.error("Google Login Error:", err);
-      // Only fallback if there's a hard crash in the library, though alert is better
       alert("An error occurred starting Google Sign-In. Please try again.");
     }
     setIsUserMenuOpen(false);
@@ -183,7 +172,7 @@ const App: React.FC = () => {
         console.log('Consent revoked');
       });
     }
-    localStorage.removeItem('snaptour_user_session'); // Clear session
+    localStorage.removeItem('snaptour_user_session');
     setUser(null);
     setUserHistory([]);
     setIsUserMenuOpen(false);
@@ -209,44 +198,24 @@ const App: React.FC = () => {
     });
     setSelectedImage(`data:image/jpeg;base64,${item.thumbnail}`);
     setState(AppState.SHOWING_RESULT);
-    setIsAudioUnavailable(false); // Reset status
-
-    setIsGeneratingAudio(true);
-    try {
-      const audioBuffer = await generateNarrationAudio(textContent);
-      if (!audioBuffer) {
-        setIsAudioUnavailable(true);
-      }
-      setResult((prev) => {
-        if (prev && prev.landmarkName === item.landmarkName) {
-          return { ...prev, audioBuffer };
-        }
-        return prev;
-      });
-    } catch (audioError) {
-      console.error("Failed to regenerate audio from history", audioError);
-      setIsAudioUnavailable(true);
-    } finally {
-      setIsGeneratingAudio(false);
-    }
   };
 
-  const handleImageSelect = (file: File) => {
+  const handleImageSelect = (file: File, gpsCoords?: {lat: number, lng: number}) => {
     const reader = new FileReader();
     reader.onload = async (e) => {
       const base64Data = e.target?.result as string;
       const base64Image = base64Data.split(',')[1];
       const mimeType = file.type;
       setSelectedImage(base64Data);
-      processTour(base64Image, mimeType, base64Data);
+      processTour(base64Image, mimeType, base64Data, gpsCoords);
     };
     reader.readAsDataURL(file);
   };
 
-  const processTour = async (base64Image: string, mimeType: string, fullImageData: string) => {
+  const processTour = async (base64Image: string, mimeType: string, fullImageData: string, gpsCoords?: {lat: number, lng: number}) => {
     try {
       setState(AppState.ANALYZING_IMAGE);
-      const idResult = await identifyLandmarkFromImage(base64Image, mimeType, currentLangName);
+      const idResult = await identifyLandmarkFromImage(base64Image, mimeType, currentLangName, gpsCoords);
       setIdentificationResult(idResult);
       const CONFIDENCE_THRESHOLD = 0.8;
       if (idResult.confidence >= CONFIDENCE_THRESHOLD) {
@@ -256,7 +225,6 @@ const App: React.FC = () => {
       }
     } catch (error: any) {
       console.error(error);
-      // Check for Rate Limit / Quota Exceeded
       if (error.message?.includes("429") || error.status === 429 || JSON.stringify(error).includes("RESOURCE_EXHAUSTED")) {
          setErrorMsg(t.quotaError);
       } else {
@@ -269,7 +237,6 @@ const App: React.FC = () => {
   const fetchDetails = async (landmarkName: string, imageOverride?: string) => {
     try {
       setState(AppState.FETCHING_DETAILS);
-      setIsAudioUnavailable(false); // Reset audio status
       const { text: detailedInfo, sources } = await getLandmarkDetails(landmarkName, currentLangName);
       setResult({
         landmarkName,
@@ -294,25 +261,6 @@ const App: React.FC = () => {
         saveHistoryItem(user.email, historyItem);
         setUserHistory(getHistory(user.email)); 
       }
-
-      setIsGeneratingAudio(true);
-      try {
-        const audioBuffer = await generateNarrationAudio(detailedInfo);
-        if (!audioBuffer) {
-           setIsAudioUnavailable(true);
-        }
-        setResult((prev) => {
-          if (prev && prev.landmarkName === landmarkName) {
-            return { ...prev, audioBuffer };
-          }
-          return prev;
-        });
-      } catch (audioError) {
-        console.error("Audio generation failed", audioError);
-        setIsAudioUnavailable(true);
-      } finally {
-        setIsGeneratingAudio(false);
-      }
     } catch (error: any) {
       console.error(error);
       if (error.message?.includes("429") || error.status === 429 || JSON.stringify(error).includes("RESOURCE_EXHAUSTED")) {
@@ -321,7 +269,6 @@ const App: React.FC = () => {
          setErrorMsg(t.error);
       }
       setState(AppState.ERROR);
-      setIsGeneratingAudio(false);
     }
   };
 
@@ -331,8 +278,6 @@ const App: React.FC = () => {
     setResult(null);
     setIdentificationResult(null);
     setErrorMsg('');
-    setIsGeneratingAudio(false);
-    setIsAudioUnavailable(false);
   };
 
   const handleLanguageChange = (code: string) => {
@@ -340,18 +285,20 @@ const App: React.FC = () => {
     setIsLangMenuOpen(false);
   };
 
-  const backgroundStyle = selectedImage ? {
-    backgroundImage: `url(${selectedImage})`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-  } : {};
-
-  // Find current language object
   const currentLang = LANGUAGES.find(l => l.code === langCode);
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-slate-900 text-white" style={backgroundStyle}>
-      {selectedImage && <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-all duration-1000" />}
+    <div className="fixed inset-0 z-0 w-full h-[100dvh] overflow-hidden bg-slate-900 text-white">
+      {/* Fixed Background Layer to prevent iOS scroll/rubber-banding */}
+      {selectedImage && (
+        <div className="fixed inset-0 z-[-1]">
+           <div 
+             className="absolute inset-0 bg-cover bg-center transition-all duration-1000 scale-105"
+             style={{ backgroundImage: `url(${selectedImage})` }}
+           />
+           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+        </div>
+      )}
 
       {/* In-App Browser Warning Banner */}
       {isInAppBrowser && (
@@ -378,7 +325,8 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <div className={`absolute ${isInAppBrowser ? 'top-16' : missingCreds.length > 0 ? 'top-10' : 'top-0'} left-0 right-0 p-6 z-40 flex items-center justify-between pointer-events-none transition-all`}>
+      {/* Fixed Header */}
+      <div className={`fixed ${isInAppBrowser ? 'top-16' : missingCreds.length > 0 ? 'top-10' : 'top-0'} left-0 right-0 p-6 z-[55] flex items-center justify-between pointer-events-none transition-all`}>
         {/* Brand */}
         <div 
           onClick={resetApp}
@@ -406,7 +354,6 @@ const App: React.FC = () => {
                   className="w-5 h-3.5 object-cover rounded-sm"
                 />
               )}
-              {/* Show only Name, not Flag emoji since we use image now */}
               <span className="text-sm font-medium hidden sm:inline">
                 {currentLang?.name || 'English'}
               </span>
@@ -438,7 +385,6 @@ const App: React.FC = () => {
           {/* User / Login Button */}
           <div className="relative" ref={userMenuRef}>
             {!user ? (
-              // NOT LOGGED IN - Show Google Button Directly
                <button 
                  onClick={handleGoogleLogin}
                  className="flex items-center gap-2 bg-white text-slate-900 px-4 py-2 rounded-full font-medium text-sm hover:bg-slate-200 transition-colors shadow-lg border border-slate-300"
@@ -453,7 +399,6 @@ const App: React.FC = () => {
                  <span className="sm:hidden">Sign in</span>
                </button>
             ) : (
-                // LOGGED IN - Show Avatar & Menu
                <>
                  <button
                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -520,8 +465,6 @@ const App: React.FC = () => {
           />
         )}
 
-        {/* LOADING STATES */}
-        
         {state === AppState.ANALYZING_IMAGE && (
           <ScanningView imageSrc={selectedImage} t={t} />
         )}
@@ -533,16 +476,12 @@ const App: React.FC = () => {
           />
         )}
 
-        {/* RESULTS & ERRORS */}
-
         {state === AppState.SHOWING_RESULT && result && (
           <TourCard 
             result={result} 
             onReset={resetApp} 
             onChat={() => setState(AppState.CHATTING)}
             t={t} 
-            isAudioLoading={isGeneratingAudio}
-            isAudioUnavailable={isAudioUnavailable}
             langCode={langCode}
           />
         )}
