@@ -180,7 +180,7 @@ export async function generateNarrationAudio(text: string): Promise<AudioBuffer 
       // Throw other errors (429, 503, 500) so retryOperation handles them
       throw error;
     }
-  }, 3, 1500); // 3 retries, starting with 1.5s delay
+  }, 3, 2000); // 3 retries, starting with 2s delay to be safe
 }
 
 // 4. Chat with the guide
