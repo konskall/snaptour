@@ -35,9 +35,32 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   // Initialize audio context lazily
   const getAudioContext = () => {
     if (!audioContextRef.current) {
+      // Use webkitAudioContext for older iOS support if needed, though window.AudioContext is standard now
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
     }
     return audioContextRef.current;
+  };
+
+  // iOS HELPER: "Warm up" the audio context with a silent buffer
+  // This forces iOS Safari to unlock the audio thread during a direct user interaction
+  const unlockAudioContext = () => {
+    const ctx = getAudioContext();
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(e => console.warn("Audio resume failed", e));
+    }
+    
+    // Play a tiny silent buffer. This tells iOS "we are playing audio now"
+    // and keeps the context alive during the async API fetch.
+    try {
+        const buffer = ctx.createBuffer(1, 1, 22050);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+        // We don't need to keep a reference to this source, it's just a key to unlock the door
+    } catch (e) {
+        console.warn("Audio unlock failed", e);
+    }
   };
 
   useEffect(() => {
@@ -152,6 +175,8 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
         stopAiAudio();
 
         const ctx = getAudioContext();
+        
+        // Ensure context is running (Critical for iOS)
         if (ctx.state === 'suspended') {
           await ctx.resume();
         }
@@ -207,6 +232,13 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   const handleAudioClick = async () => {
     if (isAudioLoading) return;
 
+    // CRITICAL FIX FOR IOS:
+    // We must "unlock" the AudioContext immediately inside the click handler.
+    // Even if we are going to wait for the API, the context must be resumed NOW.
+    if (!result.nativeTTSFallback) {
+        unlockAudioContext();
+    }
+
     // Handle Native TTS logic
     if (result.nativeTTSFallback) {
         if (isPlaying) {
@@ -238,6 +270,8 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
     // AI Audio Auto-play
     // We strictly check lock and references to avoid double-play
     if (result.audioBuffer && !isPlaying && !sourceNodeRef.current && !isAudioOpInProgress.current) {
+       // NOTE: Auto-play might fail on iOS if the "unlock" didn't work, 
+       // but handleAudioClick has already pre-warmed the context, so it should succeed.
        playAudio();
     } 
   }, [result.audioBuffer, isAudioLoading]);
