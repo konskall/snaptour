@@ -1,11 +1,22 @@
-import { GoogleGenAI, Modality, Type } from "@google/genai";
+import type { GoogleGenAI } from "@google/genai";
 import { decodeBase64, decodeAudioData } from "./audioUtils";
 import { GroundingChunk, LandmarkIdentification, ChatMessage, NearbyPlace } from "../types";
 
+// Lazily load the heavy @google/genai SDK so Vite code-splits it into its own
+// chunk that is only fetched when the user first triggers an AI call, keeping
+// the initial bundle small.
+type GenAIModule = typeof import("@google/genai");
+let sdkPromise: Promise<GenAIModule> | null = null;
+const loadSdk = (): Promise<GenAIModule> => {
+  if (!sdkPromise) sdkPromise = import("@google/genai");
+  return sdkPromise;
+};
+
 let aiInstance: GoogleGenAI | null = null;
 
-const getAI = () => {
+const getAI = async (): Promise<GoogleGenAI> => {
   if (!aiInstance) {
+    const { GoogleGenAI } = await loadSdk();
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
       console.error("API Key is missing. Please check your .env file or GitHub Secrets.");
@@ -55,7 +66,8 @@ async function retryOperation<T>(operation: () => Promise<T>, retries = 3, delay
 export async function identifyLandmarkFromImage(base64Image: string, mimeType: string, language: string): Promise<LandmarkIdentification> {
   return retryOperation(async () => {
     try {
-      const response = await getAI().models.generateContent({
+      const ai = await getAI();
+      const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: {
           parts: [
@@ -111,7 +123,8 @@ export async function identifyLandmarkFromImage(base64Image: string, mimeType: s
 export async function getLandmarkDetails(landmarkName: string, language: string): Promise<{ text: string; sources: GroundingChunk[] }> {
   return retryOperation(async () => {
     try {
-      const response = await getAI().models.generateContent({
+      const ai = await getAI();
+      const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: `Tell me the history and 3 interesting hidden facts about ${landmarkName} in ${language}. Keep the tone engaging, like a passionate tour guide. Limit to 150 words.`,
         config: {
@@ -138,7 +151,9 @@ export async function generateNarrationAudio(text: string): Promise<AudioBuffer 
   // Wrap in retryOperation to handle instability in the preview model
   return retryOperation(async () => {
     try {
-      const response = await getAI().models.generateContent({
+      const ai = await getAI();
+      const { Modality } = await loadSdk();
+      const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: [{ parts: [{ text: safeText }] }],
         config: {
@@ -203,7 +218,8 @@ export async function getChatResponse(landmarkName: string, history: ChatMessage
       Answer in ${language}. Keep it concise (under 50 words), friendly, and helpful. If asked about prices or opening hours, use your knowledge base or estimate based on typical values for such places.
     `;
 
-    const response = await getAI().models.generateContent({
+    const ai = await getAI();
+    const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
     });
@@ -218,7 +234,9 @@ export async function getChatResponse(landmarkName: string, history: ChatMessage
 // 5. Get nearby places recommendations
 export async function getNearbyPlaces(landmarkName: string, language: string): Promise<NearbyPlace[]> {
   try {
-    const response = await getAI().models.generateContent({
+    const ai = await getAI();
+    const { Type } = await loadSdk();
+    const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `List 3 interesting places to visit near ${landmarkName}. Provide the name and a short description (under 10 words) for each in ${language}.`,
       config: {
