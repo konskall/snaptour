@@ -27,10 +27,10 @@ export interface LandmarkIdentification {
 }
 
 export interface User {
+  uid: string;
   name: string;
   email: string;
   picture: string;
-  accessToken?: string;
 }
 
 export interface HistoryItem {

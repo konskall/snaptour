@@ -7,17 +7,13 @@ import { ScanningView } from './components/ScanningView';
 import { SkeletonCard } from './components/SkeletonCard';
 import { ChatView } from './components/ChatView';
 import { identifyLandmarkFromImage, getLandmarkDetails, generateNarrationAudio } from './services/geminiService';
-import { saveHistoryItem, getHistory, createThumbnail, clearHistory } from './services/storageService';
+import { saveHistoryItem, getHistory, createThumbnail, clearHistory, migrateLocalHistory } from './services/storageService';
+import { auth, isFirebaseConfigured } from './services/firebase';
+import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import { AppState, AnalysisResult, LandmarkIdentification, User, HistoryItem } from './types';
 import { Loader2, Globe, History, UserCircle, LogOut, Zap, AlertTriangle, ExternalLink } from 'lucide-react';
 import { Logo } from './components/Logo';
 import { LANGUAGES, translations } from './translations';
-
-declare global {
-  interface Window {
-    google: any;
-  }
-}
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>(AppState.IDLE);
@@ -36,7 +32,6 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [userHistory, setUserHistory] = useState<HistoryItem[]>([]);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isGoogleScriptLoaded, setIsGoogleScriptLoaded] = useState(false);
 
   // Refs for click-outside detection
   const langMenuRef = useRef<HTMLDivElement>(null);
@@ -61,30 +56,27 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Poll for Google Script Load (fix for In-App browsers like LinkedIn)
+  // Subscribe to Firebase auth state (handles session persistence + redirect return)
   useEffect(() => {
-    const checkGoogle = setInterval(() => {
-      if (window.google) {
-        setIsGoogleScriptLoaded(true);
-        clearInterval(checkGoogle);
+    if (!auth) return;
+    getRedirectResult(auth).catch(err => console.error('Redirect sign-in failed', err));
+    const unsub = onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
+      if (fbUser) {
+        const mapped: User = {
+          uid: fbUser.uid,
+          name: fbUser.displayName || 'Traveler',
+          email: fbUser.email || '',
+          picture: fbUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(fbUser.displayName || 'T')}&background=6366f1&color=fff`,
+        };
+        setUser(mapped);
+        await migrateLocalHistory(mapped.uid, mapped.email);
+        setUserHistory(await getHistory(mapped.uid));
+      } else {
+        setUser(null);
+        setUserHistory([]);
       }
-    }, 500);
-    return () => clearInterval(checkGoogle);
-  }, []);
-
-  // Check for saved user session on mount
-  useEffect(() => {
-    const storedUser = localStorage.getItem('snaptour_user_session');
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        setUserHistory(getHistory(parsedUser.email));
-      } catch (e) {
-        console.error("Failed to restore session", e);
-        localStorage.removeItem('snaptour_user_session');
-      }
-    }
+    });
+    return () => unsub();
   }, []);
 
   useEffect(() => {
@@ -102,99 +94,35 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const handleGoogleLogin = () => {
-    const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-
-    const performMockLogin = () => {
-       console.warn("Using Mock Login (Demo Mode) - Missing CLIENT_ID");
-       const mockUser: User = {
-         name: "Guest Traveler",
-         email: "guest@snaptour.app",
-         picture: "https://ui-avatars.com/api/?name=Guest+Traveler&background=random&color=fff&background=6366f1",
-         accessToken: "mock_token_123"
-       };
-       setUser(mockUser);
-       localStorage.setItem('snaptour_user_session', JSON.stringify(mockUser)); // Save session
-       setUserHistory(getHistory(mockUser.email));
-    };
-
-    // 1. Critical: Check if Client ID exists. If NOT, we are likely in dev mode or not configured.
-    if (!CLIENT_ID) {
-      performMockLogin();
-      setIsUserMenuOpen(false);
+  const handleGoogleLogin = async () => {
+    setIsUserMenuOpen(false);
+    if (!auth || !isFirebaseConfigured()) {
+      alert('Sign-in is not configured. Set the FIREBASE_* secrets.');
       return;
     }
-
-    // 2. Client ID exists, so we EXPECT Google Login to work.
-    // If window.google is missing, it's a network/browser loading issue or blocked by In-App Browser.
-    // We should NOT fallback to mock login here, as it confuses users (logging them in as Guest).
-    if (!window.google) {
-        console.error("Google Sign-In script not loaded yet.");
-        
-        // Check if we are in Instagram (which works but might be slow)
-        const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
-        const isInstagram = /(Instagram)/i.test(ua);
-
-        // Only show alert if it's NOT LinkedIn (Banner) AND NOT Instagram (Slow but working)
-        if (!isInAppBrowser && !isInstagram) {
-           alert("Google Sign-In is still initializing or blocked. Please refresh the page.");
-        }
-        return;
-    }
-
+    const provider = new GoogleAuthProvider();
     try {
-      const client = window.google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
-        callback: async (tokenResponse: any) => {
-          if (tokenResponse && tokenResponse.access_token) {
-            try {
-              const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
-              });
-              const userInfo = await userInfoRes.json();
-              const newUser = {
-                name: userInfo.name,
-                email: userInfo.email,
-                picture: userInfo.picture,
-                accessToken: tokenResponse.access_token
-              };
-              setUser(newUser);
-              localStorage.setItem('snaptour_user_session', JSON.stringify(newUser)); // Save session
-              setUserHistory(getHistory(userInfo.email));
-            } catch (error) {
-              console.error("Failed to fetch user info", error);
-            }
-          }
-        },
-      });
-      client.requestAccessToken();
+      if (isInAppBrowser) {
+        await signInWithRedirect(auth, provider); // popups blocked in in-app browsers
+      } else {
+        await signInWithPopup(auth, provider);    // onAuthStateChanged handles the rest
+      }
     } catch (err) {
-      console.error("Google Login Error:", err);
-      // Only fallback if there's a hard crash in the library, though alert is better
-      alert("An error occurred starting Google Sign-In. Please try again.");
-    }
-    setIsUserMenuOpen(false);
-  };
-
-  const handleLogout = () => {
-    if (window.google && user?.accessToken && user.accessToken !== "mock_token_123") {
-      window.google.accounts.oauth2.revoke(user?.accessToken, () => {
-        console.log('Consent revoked');
-      });
-    }
-    localStorage.removeItem('snaptour_user_session'); // Clear session
-    setUser(null);
-    setUserHistory([]);
-    setIsUserMenuOpen(false);
-    if (state === AppState.VIEWING_HISTORY) {
-       setState(AppState.IDLE);
+      console.error('Google sign-in failed', err);
+      alert('Sign-in failed. Please try again.');
     }
   };
 
-  const handleClearHistory = () => {
+  const handleLogout = async () => {
+    setIsUserMenuOpen(false);
+    try { if (auth) await signOut(auth); } catch (e) { console.error('Sign-out failed', e); }
+    // onAuthStateChanged clears user + history; reset the view if needed
+    if (state === AppState.VIEWING_HISTORY) setState(AppState.IDLE);
+  };
+
+  const handleClearHistory = async () => {
     if (user) {
-      clearHistory(user.email);
+      await clearHistory(user.uid);
       setUserHistory([]);
     }
   };
@@ -306,8 +234,8 @@ const App: React.FC = () => {
            groundingSources: sources, 
            thumbnail: thumbnail
         };
-        saveHistoryItem(user.email, historyItem);
-        setUserHistory(getHistory(user.email)); 
+        await saveHistoryItem(user.uid, historyItem);
+        setUserHistory(await getHistory(user.uid));
       }
       
       // We do NOT automatically generate audio anymore to prevent hitting rate limits
