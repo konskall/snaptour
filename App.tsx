@@ -101,6 +101,8 @@ const App: React.FC = () => {
       return;
     }
     const provider = new GoogleAuthProvider();
+    // Always show the Google account chooser, so logout -> login can pick a different account
+    provider.setCustomParameters({ prompt: 'select_account' });
     try {
       if (isInAppBrowser) {
         await signInWithRedirect(auth, provider); // popups blocked in in-app browsers
