@@ -29,18 +29,20 @@ const getAI = async (): Promise<GoogleGenAI> => {
   return aiInstance;
 };
 
-// Retry helper for 429 (Rate Limit) and 503 (Service Unavailable) errors
+// Retry helper for transient server errors (503 Service Unavailable / 500 /
+// "overloaded"). We deliberately DO NOT retry 429 / quota errors: on the free
+// tier those reset per-minute or per-day, so retrying within a few seconds just
+// fails again and burns more of the already-limited quota. Fail fast instead and
+// let the caller show the "wait a minute" message.
 async function retryOperation<T>(operation: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
   try {
     return await operation();
   } catch (error: any) {
-    // Retry on 429 (Too Many Requests), 503 (Service Unavailable), or 500 (Internal Server Error)
-    const shouldRetry = 
-      error.status === 429 || 
-      error.status === 503 || 
+    const shouldRetry =
+      error.status === 503 ||
       error.status === 500 ||
-      error.message?.includes('429') || 
-      error.message?.includes('quota') ||
+      error.message?.includes('503') ||
+      error.message?.includes('500') ||
       error.message?.includes('overloaded');
 
     if (retries > 0 && shouldRetry) {
