@@ -7,6 +7,7 @@ interface HistoryViewProps {
   onClose: () => void;
   onClear: () => void;
   onSelect: (item: HistoryItem) => void;
+  onDelete: (id: string) => void;
   t: Translation;
 }
 
@@ -32,7 +33,7 @@ const HistoryThumbnail = ({ thumbnail, alt }: { thumbnail: string, alt: string }
   );
 };
 
-export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClear, onSelect, t }) => {
+export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClear, onSelect, onDelete, t }) => {
   const [showConfirm, setShowConfirm] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -100,30 +101,42 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
           </div>
         ) : (
           items.map((item) => (
-            <button
-              type="button"
-              key={item.id}
-              onClick={() => onSelect(item)}
-              aria-label={item.landmarkName}
-              className="w-full text-left bg-slate-800/50 border border-slate-700 rounded-2xl overflow-hidden flex flex-col sm:flex-row hover:bg-slate-800 transition-colors group cursor-pointer active:scale-[0.99] transition-transform"
-            >
-              {/* Image Container */}
-              <div className="w-full h-48 sm:w-48 sm:h-48 flex-shrink-0 bg-slate-900 relative overflow-hidden">
-                <HistoryThumbnail thumbnail={item.thumbnail} alt={item.landmarkName} />
-              </div>
-              <div className="p-4 flex flex-col justify-center flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <h3 className="text-xl font-bold text-white truncate w-full group-hover:text-indigo-400 transition-colors">{item.landmarkName}</h3>
-                  <div className="flex-shrink-0 flex items-center text-xs text-slate-400 bg-slate-900/80 px-2 py-1 rounded-full whitespace-nowrap">
-                    <Calendar size={12} className="mr-1" />
-                    {new Date(item.timestamp).toLocaleDateString()}
-                  </div>
+            <div key={item.id} className="relative">
+              <button
+                type="button"
+                onClick={() => onSelect(item)}
+                aria-label={item.landmarkName}
+                className="w-full text-left bg-slate-800/50 border border-slate-700 rounded-2xl overflow-hidden flex flex-col sm:flex-row hover:bg-slate-800 transition-colors group cursor-pointer active:scale-[0.99] transition-transform"
+              >
+                {/* Image Container */}
+                <div className="w-full h-48 sm:w-48 sm:h-48 flex-shrink-0 bg-slate-900 relative overflow-hidden">
+                  <HistoryThumbnail thumbnail={item.thumbnail} alt={item.landmarkName} />
                 </div>
-                <p className="text-slate-400 text-sm line-clamp-3 sm:line-clamp-4 leading-relaxed">
-                  {item.summary}
-                </p>
-              </div>
-            </button>
+                <div className="p-4 flex flex-col justify-center flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h3 className="text-xl font-bold text-white truncate w-full group-hover:text-indigo-400 transition-colors">{item.landmarkName}</h3>
+                    <div className="flex-shrink-0 flex items-center text-xs text-slate-400 bg-slate-900/80 px-2 py-1 rounded-full whitespace-nowrap">
+                      <Calendar size={12} className="mr-1" />
+                      {new Date(item.timestamp).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <p className="text-slate-400 text-sm line-clamp-3 sm:line-clamp-4 leading-relaxed">
+                    {item.summary}
+                  </p>
+                </div>
+              </button>
+
+              {/* Per-item delete (sits above the select button, top-right of the thumbnail) */}
+              <button
+                type="button"
+                onClick={() => onDelete(item.id)}
+                aria-label={`${t.deleteItem}: ${item.landmarkName}`}
+                title={t.deleteItem}
+                className="absolute top-2 right-2 sm:left-2 sm:right-auto z-10 p-2 rounded-full bg-slate-900/80 backdrop-blur-sm text-slate-200 hover:bg-red-600 hover:text-white border border-slate-700/60 shadow-lg transition-colors"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
           ))
         )}
       </div>

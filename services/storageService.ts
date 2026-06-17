@@ -2,7 +2,7 @@ import { HistoryItem } from '../types';
 import { db } from './firebase';
 import { capItems, MAX_HISTORY_ITEMS } from './historyUtils';
 import {
-  collection, doc, getDocs, setDoc, query, orderBy, limit, writeBatch, getCountFromServer,
+  collection, doc, getDocs, setDoc, deleteDoc, query, orderBy, limit, writeBatch, getCountFromServer,
 } from 'firebase/firestore';
 
 // Helper to resize image for thumbnail storage
@@ -109,6 +109,18 @@ export async function saveHistoryItem(uid: string, item: HistoryItem): Promise<H
     console.error('saveHistoryItem failed (kept in local cache)', e);
   }
   return optimistic;
+}
+
+export async function deleteHistoryItem(uid: string, id: string): Promise<HistoryItem[]> {
+  const next = readCache(uid).filter(i => i.id !== id);
+  writeCache(uid, next); // optimistic cache update
+  if (!db) return next;
+  try {
+    await deleteDoc(doc(historyCol(uid), id));
+  } catch (e) {
+    console.error('deleteHistoryItem failed (cache already updated)', e);
+  }
+  return next;
 }
 
 export async function clearHistory(uid: string): Promise<void> {

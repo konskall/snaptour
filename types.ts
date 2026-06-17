@@ -99,6 +99,7 @@ export interface Translation {
   shareError: string;
   clearHistory: string;
   confirmClear: string;
+  deleteItem: string;
   featureScan: string;
   featureScanDesc: string;
   featureLearn: string;

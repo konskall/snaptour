@@ -7,7 +7,7 @@ import { ScanningView } from './components/ScanningView';
 import { SkeletonCard } from './components/SkeletonCard';
 import { ChatView } from './components/ChatView';
 import { identifyLandmarkFromImage, getLandmarkDetails, generateNarrationAudio } from './services/geminiService';
-import { saveHistoryItem, getHistory, createThumbnail, clearHistory, migrateLocalHistory } from './services/storageService';
+import { saveHistoryItem, getHistory, createThumbnail, clearHistory, deleteHistoryItem, migrateLocalHistory } from './services/storageService';
 import { auth, isFirebaseConfigured } from './services/firebase';
 import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import { AppState, AnalysisResult, LandmarkIdentification, User, HistoryItem } from './types';
@@ -188,6 +188,12 @@ const App: React.FC = () => {
     if (user) {
       await clearHistory(user.uid);
       setUserHistory([]);
+    }
+  };
+
+  const handleDeleteHistoryItem = async (id: string) => {
+    if (user) {
+      setUserHistory(await deleteHistoryItem(user.uid, id));
     }
   };
 
@@ -535,12 +541,13 @@ const App: React.FC = () => {
         )}
         
         {state === AppState.VIEWING_HISTORY && (
-          <HistoryView 
-            items={userHistory} 
-            onClose={() => setState(AppState.IDLE)} 
+          <HistoryView
+            items={userHistory}
+            onClose={() => setState(AppState.IDLE)}
             onClear={handleClearHistory}
             onSelect={handleHistorySelect}
-            t={t} 
+            onDelete={handleDeleteHistoryItem}
+            t={t}
           />
         )}
 
