@@ -21,10 +21,14 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
       
       {/* Background Image Layer - Fixed to ensure full coverage on all devices */}
       <div className="fixed inset-0 z-0 w-full h-full">
-        <img 
-          src="https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2021&auto=format&fit=crop" 
-          alt="Travel Background" 
-          className="w-full h-full object-cover object-center" 
+        <img
+          src="https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=70&w=1920&auto=format&fit=crop"
+          srcSet="https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=70&w=640&auto=format&fit=crop 640w, https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=70&w=828&auto=format&fit=crop 828w, https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=70&w=1280&auto=format&fit=crop 1280w, https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=70&w=1920&auto=format&fit=crop 1920w"
+          sizes="100vw"
+          fetchPriority="high"
+          decoding="async"
+          alt="Travel Background"
+          className="w-full h-full object-cover object-center"
         />
         {/* Dark Gradient Overlay to ensure text readability - Reduced opacity */}
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900/70 via-slate-900/40 to-slate-900/80" />

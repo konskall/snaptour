@@ -27,7 +27,7 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({ t, landmarkName }) =
               
               {/* Title Skeleton - If we have the name, show it, otherwise show bar */}
               {landmarkName ? (
-                 <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight">{landmarkName}</h1>
+                 <h2 className="text-2xl sm:text-3xl font-bold text-white leading-tight">{landmarkName}</h2>
               ) : (
                  <div className="h-8 w-3/4 bg-slate-700 rounded-lg mb-2"></div>
               )}

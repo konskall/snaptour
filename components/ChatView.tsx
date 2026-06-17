@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, X, Bot, User } from 'lucide-react';
 import { ChatMessage, Translation } from '../types';
 import { getChatResponse } from '../services/geminiService';
+import { useDialog } from '../hooks/useDialog';
 
 interface ChatViewProps {
   landmarkName: string;
@@ -22,6 +23,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useDialog<HTMLDivElement>(onClose);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -48,12 +50,19 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
       const aiMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
-        text: response,
+        text: response && response.trim() ? response : t.chatError,
         timestamp: Date.now()
       };
       setMessages(prev => [...prev, aiMsg]);
     } catch (error) {
       console.error(error);
+      const errMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        sender: 'ai',
+        text: t.chatError,
+        timestamp: Date.now()
+      };
+      setMessages(prev => [...prev, errMsg]);
     } finally {
       setIsLoading(false);
     }
@@ -63,7 +72,14 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center pointer-events-none p-0 sm:p-6">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" onClick={onClose} />
       
-      <div className="relative pointer-events-auto w-full max-w-md bg-slate-900 border-t sm:border border-slate-700 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col h-[85dvh] sm:h-[600px] animate-slide-up">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="chat-title"
+        tabIndex={-1}
+        className="relative pointer-events-auto w-full max-w-md bg-slate-900 border-t sm:border border-slate-700 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col h-[85dvh] sm:h-[600px] animate-slide-up"
+      >
         
         {/* Header */}
         <div className="p-4 border-b border-slate-700 flex items-center justify-between bg-slate-800/50 rounded-t-3xl shrink-0">
@@ -72,17 +88,23 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
               <Bot size={20} className="text-white" />
             </div>
             <div>
-              <h3 className="font-bold text-white">{t.chatTitle}</h3>
+              <h3 id="chat-title" className="font-bold text-white">{t.chatTitle}</h3>
               <p className="text-xs text-indigo-300">{landmarkName}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-700 rounded-full text-slate-400">
+          <button onClick={onClose} aria-label={t.close} className="p-2 hover:bg-slate-700 rounded-full text-slate-400">
             <X size={20} />
           </button>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar min-h-0" ref={scrollRef}>
+        <div
+          className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar min-h-0"
+          ref={scrollRef}
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions text"
+        >
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[80%] rounded-2xl p-3 px-4 text-sm ${
@@ -95,8 +117,9 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
             </div>
           ))}
           {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-slate-700 rounded-2xl rounded-tl-none p-3 px-4 flex gap-1">
+            <div className="flex justify-start" role="status">
+              <span className="sr-only">…</span>
+              <div className="bg-slate-700 rounded-2xl rounded-tl-none p-3 px-4 flex gap-1" aria-hidden="true">
                 <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" />
                 <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-75" />
                 <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-150" />
@@ -115,11 +138,12 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder={t.chatPlaceholder}
               style={{ fontSize: '16px' }} // Force 16px to prevent iOS Zoom
-              className="flex-1 bg-slate-900 border border-slate-600 rounded-full px-4 py-3 text-base text-white focus:outline-none focus:border-indigo-500"
+              className="flex-1 bg-slate-900 border border-slate-600 rounded-full px-4 py-3 text-base text-white focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400"
             />
-            <button 
+            <button
               onClick={handleSend}
               disabled={!input.trim() || isLoading}
+              aria-label="Send"
               className="w-12 h-12 rounded-full bg-indigo-600 disabled:bg-slate-700 disabled:text-slate-500 text-white flex items-center justify-center hover:bg-indigo-500 transition-colors"
             >
               <Send size={20} />

@@ -24,7 +24,6 @@ const App: React.FC = () => {
   const [langCode, setLangCode] = useState<string>('en');
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
-  const [isAudioUnavailable, setIsAudioUnavailable] = useState(false);
   const [missingCreds, setMissingCreds] = useState<string[]>([]);
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
   
@@ -36,9 +35,17 @@ const App: React.FC = () => {
   // Refs for click-outside detection
   const langMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  // Refs to the menu trigger buttons for focus restore on Escape
+  const langBtnRef = useRef<HTMLButtonElement>(null);
+  const userBtnRef = useRef<HTMLButtonElement>(null);
 
   const t = translations[langCode] || translations['en'];
   const currentLangName = LANGUAGES.find(l => l.code === langCode)?.name || 'English';
+
+  // Keep the document language in sync for a11y / correct hyphenation & voice selection
+  useEffect(() => {
+    document.documentElement.lang = langCode;
+  }, [langCode]);
 
   useEffect(() => {
     const missing = [];
@@ -94,10 +101,29 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Escape closes whichever dropdown menu is open and restores focus to its trigger
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (isLangMenuOpen) {
+        setIsLangMenuOpen(false);
+        langBtnRef.current?.focus();
+      }
+      if (isUserMenuOpen) {
+        setIsUserMenuOpen(false);
+        userBtnRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isLangMenuOpen, isUserMenuOpen]);
+
   const handleGoogleLogin = async () => {
     setIsUserMenuOpen(false);
     if (!auth || !isFirebaseConfigured()) {
-      alert('Sign-in is not configured. Set the FIREBASE_* secrets.');
+      alert(t.signInNotConfigured);
       return;
     }
     const provider = new GoogleAuthProvider();
@@ -111,7 +137,7 @@ const App: React.FC = () => {
       }
     } catch (err) {
       console.error('Google sign-in failed', err);
-      alert('Sign-in failed. Please try again.');
+      alert(t.signInFailed);
     }
   };
 
@@ -133,7 +159,6 @@ const App: React.FC = () => {
     if (!result || isGeneratingAudio) return;
     
     setIsGeneratingAudio(true);
-    setIsAudioUnavailable(false); // Reset error state
 
     try {
       const audioBuffer = await generateNarrationAudio(result.detailedInfo);
@@ -165,9 +190,8 @@ const App: React.FC = () => {
     });
     setSelectedImage(`data:image/jpeg;base64,${item.thumbnail}`);
     setState(AppState.SHOWING_RESULT);
-    
-    // Reset Audio States - user must click play to generate
-    setIsAudioUnavailable(false); 
+
+    // Reset Audio State - user must click play to generate
     setIsGeneratingAudio(false);
   };
 
@@ -175,10 +199,23 @@ const App: React.FC = () => {
     const reader = new FileReader();
     reader.onload = async (e) => {
       const base64Data = e.target?.result as string;
+      // Guard against an invalid / non-data-URL FileReader result
+      if (typeof base64Data !== 'string' || !base64Data.startsWith('data:') || !base64Data.includes(',')) {
+        setErrorMsg(t.error);
+        setState(AppState.ERROR);
+        return;
+      }
       const base64Image = base64Data.split(',')[1];
       const mimeType = file.type;
-      setSelectedImage(base64Data);
+      // Use a downscaled thumbnail for the on-screen background/state to avoid
+      // holding a full-res image in React state; the original is sent to processTour.
+      const thumb = await createThumbnail(base64Data);
+      setSelectedImage(`data:image/jpeg;base64,${thumb}`);
       processTour(base64Image, mimeType, base64Data);
+    };
+    reader.onerror = () => {
+      setErrorMsg(t.error);
+      setState(AppState.ERROR);
     };
     reader.readAsDataURL(file);
   };
@@ -209,9 +246,8 @@ const App: React.FC = () => {
   const fetchDetails = async (landmarkName: string, imageOverride?: string) => {
     try {
       setState(AppState.FETCHING_DETAILS);
-      
-      // Reset Audio States - user must click play to generate
-      setIsAudioUnavailable(false);
+
+      // Reset Audio State - user must click play to generate
       setIsGeneratingAudio(false);
 
       const { text: detailedInfo, sources } = await getLandmarkDetails(landmarkName, currentLangName);
@@ -236,8 +272,7 @@ const App: React.FC = () => {
            groundingSources: sources, 
            thumbnail: thumbnail
         };
-        await saveHistoryItem(user.uid, historyItem);
-        setUserHistory(await getHistory(user.uid));
+        setUserHistory(await saveHistoryItem(user.uid, historyItem));
       }
       
       // We do NOT automatically generate audio anymore to prevent hitting rate limits
@@ -261,7 +296,6 @@ const App: React.FC = () => {
     setIdentificationResult(null);
     setErrorMsg('');
     setIsGeneratingAudio(false);
-    setIsAudioUnavailable(false);
   };
 
   const handleLanguageChange = (code: string) => {
@@ -279,12 +313,12 @@ const App: React.FC = () => {
   const currentLang = LANGUAGES.find(l => l.code === langCode);
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-slate-900 text-white" style={backgroundStyle}>
+    <div className="relative w-full h-[100svh] overflow-hidden bg-slate-900 text-white" style={backgroundStyle}>
       {selectedImage && <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-all duration-1000" />}
 
       {/* In-App Browser Warning Banner */}
       {isInAppBrowser && (
-        <div className="absolute top-0 left-0 right-0 bg-amber-600 text-white z-[110] px-4 py-3 flex items-center justify-center shadow-xl animate-slide-down">
+        <div className="absolute top-0 left-0 right-0 bg-amber-600 text-white z-[110] px-4 py-3 flex items-center justify-center shadow-xl animate-slide-down" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
            <div className="flex items-center gap-3 text-center">
              <ExternalLink size={20} className="flex-shrink-0" />
              <span className="text-sm font-bold">
@@ -295,43 +329,59 @@ const App: React.FC = () => {
       )}
 
       {missingCreds.length > 0 && !isInAppBrowser && (
-        <div className="absolute top-0 left-0 right-0 bg-red-600 text-white z-[100] px-4 py-2 flex items-center justify-between shadow-xl">
+        <div className="absolute top-0 left-0 right-0 bg-red-600 text-white z-[100] px-4 py-2 flex items-center justify-between shadow-xl" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
            <div className="flex items-center gap-2">
              <AlertTriangle size={18} className="fill-white text-red-600" />
+             {/* Intentionally English-only: admin/deploy-time setup notice, never shown to end customers */}
              <span className="text-sm font-bold">
-               Setup Required: Missing {missingCreds.join(" & ")}. 
+               Setup Required: Missing {missingCreds.join(" & ")}.
                Check GitHub Settings &rarr; Secrets.
              </span>
            </div>
-           <button onClick={() => setMissingCreds([])} className="text-xs bg-red-800 hover:bg-red-700 px-2 py-1 rounded">Dismiss</button>
+           <button onClick={() => setMissingCreds([])} className="text-xs bg-red-800 hover:bg-red-700 px-2 py-1 rounded">{t.dismiss}</button>
         </div>
       )}
 
-      <div className={`absolute ${isInAppBrowser ? 'top-16' : missingCreds.length > 0 ? 'top-10' : 'top-0'} left-0 right-0 p-6 z-40 flex items-center justify-between pointer-events-none transition-all`}>
+      <header
+        className={`absolute ${isInAppBrowser ? 'top-16' : missingCreds.length > 0 ? 'top-10' : 'top-0'} left-0 right-0 p-6 z-40 flex items-center justify-between pointer-events-none transition-all`}
+        style={{
+          // Keep existing p-6 (1.5rem) baseline while honoring device safe-area insets
+          paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
+          paddingLeft: 'calc(1.5rem + env(safe-area-inset-left))',
+          paddingRight: 'calc(1.5rem + env(safe-area-inset-right))',
+        }}
+      >
         {/* Brand */}
-        <div 
+        <button
+          type="button"
           onClick={resetApp}
+          aria-label="Go to home"
           className="flex items-center gap-2 pointer-events-auto cursor-pointer group"
         >
           <div className="bg-black/20 backdrop-blur-md p-2 rounded-2xl border border-white/10 shadow-lg group-hover:bg-white/10 transition-colors">
              <Logo className="w-8 h-8 drop-shadow-lg" />
           </div>
-          <span className="font-bold tracking-tight text-white text-xl drop-shadow-md">
+          <h1 className="font-bold tracking-tight text-white text-xl drop-shadow-md">
             Snap<span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">Tour</span>
-          </span>
-        </div>
+          </h1>
+        </button>
 
-        <div className="flex items-center gap-3 pointer-events-auto">
+        <nav aria-label="Account and language" className="flex items-center gap-3 pointer-events-auto">
           {/* Language Selector */}
           <div className="relative" ref={langMenuRef}>
-            <button 
+            <button
+              ref={langBtnRef}
               onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+              aria-haspopup="menu"
+              aria-expanded={isLangMenuOpen}
+              aria-controls="lang-menu"
               className="flex items-center gap-2 bg-black/20 backdrop-blur-md px-3 py-2 rounded-full border border-white/10 hover:bg-white/10 transition-colors shadow-lg"
             >
               {currentLang && (
-                <img 
+                <img
                   src={`https://flagcdn.com/w40/${currentLang.countryCode}.png`}
                   alt={currentLang.name}
+                  decoding="async"
                   className="w-5 h-3.5 object-cover rounded-sm"
                 />
               )}
@@ -342,17 +392,19 @@ const App: React.FC = () => {
             </button>
 
             {isLangMenuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50 animate-fade-in">
+              <div id="lang-menu" role="menu" className="absolute right-0 top-full mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50 animate-fade-in">
                 {LANGUAGES.map((lang) => (
                   <button
                     key={lang.code}
+                    role="menuitem"
                     onClick={() => handleLanguageChange(lang.code)}
                     className={`w-full text-left px-4 py-3 text-sm hover:bg-slate-700 transition-colors flex items-center justify-between ${langCode === lang.code ? 'bg-slate-700/50 text-indigo-400' : 'text-slate-200'}`}
                   >
                     <div className="flex items-center">
-                      <img 
+                      <img
                         src={`https://flagcdn.com/w40/${lang.countryCode}.png`}
                         alt={lang.name}
+                        decoding="async"
                         className="w-5 h-3.5 object-cover rounded-sm mr-3"
                       />
                       <span>{lang.label}</span>
@@ -379,13 +431,17 @@ const App: React.FC = () => {
                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                  </svg>
                  <span className="hidden sm:inline">{t.login}</span>
-                 <span className="sm:hidden">Sign in</span>
+                 <span className="sm:hidden">{t.signIn}</span>
                </button>
             ) : (
                 // LOGGED IN - Show Avatar & Menu
                <>
                  <button
+                   ref={userBtnRef}
                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                   aria-haspopup="menu"
+                   aria-expanded={isUserMenuOpen}
+                   aria-controls="user-menu"
                    className="flex items-center gap-2 bg-black/20 backdrop-blur-md px-2 py-2 sm:px-3 sm:py-2 rounded-full border border-white/10 hover:bg-white/10 transition-colors shadow-lg"
                  >
                    <img src={user.picture} alt={user.name} className="w-5 h-5 rounded-full border border-white/20" />
@@ -393,12 +449,13 @@ const App: React.FC = () => {
                  </button>
 
                  {isUserMenuOpen && (
-                   <div className="absolute right-0 top-full mt-2 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50 animate-fade-in">
+                   <div id="user-menu" role="menu" className="absolute right-0 top-full mt-2 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50 animate-fade-in">
                      <div className="px-4 py-3 border-b border-slate-700">
                        <p className="text-sm font-semibold text-white">{user.name}</p>
                        <p className="text-xs text-slate-400 truncate">{user.email}</p>
                      </div>
-                     <button 
+                     <button
+                       role="menuitem"
                        onClick={() => {
                          setState(AppState.VIEWING_HISTORY);
                          setIsUserMenuOpen(false);
@@ -408,7 +465,8 @@ const App: React.FC = () => {
                        <History size={16} className="text-indigo-400" />
                        {t.history}
                      </button>
-                     <button 
+                     <button
+                       role="menuitem"
                        onClick={handleLogout}
                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-700 transition-colors flex items-center gap-3 text-red-300"
                      >
@@ -420,11 +478,11 @@ const App: React.FC = () => {
                </>
             )}
           </div>
-        </div>
-      </div>
+        </nav>
+      </header>
 
       {/* Main Content Area */}
-      <div className="relative z-10 w-full h-full flex flex-col">
+      <main className="relative z-10 w-full h-full flex flex-col">
         
         {state === AppState.IDLE && (
           <PhotoInput onImageSelect={handleImageSelect} t={t} />
@@ -470,10 +528,10 @@ const App: React.FC = () => {
             onReset={resetApp} 
             onChat={() => setState(AppState.CHATTING)}
             onGenerateAudio={handleGenerateAudio}
-            t={t} 
+            t={t}
             isAudioLoading={isGeneratingAudio}
-            isAudioUnavailable={isAudioUnavailable}
             langCode={langCode}
+            langName={currentLangName}
           />
         )}
         
@@ -491,7 +549,7 @@ const App: React.FC = () => {
             <div className="bg-red-500/20 p-6 rounded-full mb-6 text-red-400">
                <Zap size={48} />
             </div>
-            <h3 className="text-2xl font-bold mb-2">{t.oops}</h3>
+            <h2 className="text-2xl font-bold mb-2">{t.oops}</h2>
             <p className="text-slate-300 mb-8 max-w-xs mx-auto">{errorMsg}</p>
             <button 
               onClick={resetApp}
@@ -501,7 +559,7 @@ const App: React.FC = () => {
             </button>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 };

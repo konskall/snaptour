@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { HistoryItem, Translation } from '../types';
 import { Calendar, MapPin, Home, Trash2, CheckCircle, XCircle, Image as ImageIcon } from 'lucide-react';
 
@@ -34,13 +34,18 @@ const HistoryThumbnail = ({ thumbnail, alt }: { thumbnail: string, alt: string }
 
 export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClear, onSelect, t }) => {
   const [showConfirm, setShowConfirm] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
 
   return (
     <div className="flex flex-col w-full h-full p-6 pt-24 animate-fade-in bg-slate-900 overflow-hidden">
-      
+
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <h2 className="text-3xl font-bold text-white">{t.historyTitle}</h2>
+        <h2 ref={headingRef} tabIndex={-1} className="text-3xl font-bold text-white outline-none">{t.historyTitle}</h2>
         
         <div className="flex items-center gap-2 self-end sm:self-auto">
           {items.length > 0 && (
@@ -48,15 +53,17 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
                 {showConfirm ? (
                   <div className="flex items-center gap-2 bg-red-900/50 border border-red-800 rounded-full px-1 py-1 animate-fade-in">
                      <span className="text-xs text-red-200 pl-3 font-medium">{t.confirmClear}</span>
-                     <button 
+                     <button
                        onClick={() => { onClear(); setShowConfirm(false); }}
                        className="p-2 bg-red-600 rounded-full text-white hover:bg-red-500"
+                       aria-label={t.confirmClear}
                      >
                        <CheckCircle size={16} />
                      </button>
-                     <button 
+                     <button
                         onClick={() => setShowConfirm(false)}
                         className="p-2 bg-slate-700 rounded-full text-slate-300 hover:bg-slate-600"
+                        aria-label={t.close}
                      >
                        <XCircle size={16} />
                      </button>
@@ -66,6 +73,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
                     onClick={() => setShowConfirm(true)}
                     className="bg-slate-800 hover:bg-red-900/40 text-slate-400 hover:text-red-400 p-3 rounded-full transition-all duration-300 border border-slate-700 shadow-lg"
                     title={t.clearHistory}
+                    aria-label={t.clearHistory}
                   >
                     <Trash2 size={20} />
                   </button>
@@ -92,10 +100,12 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
           </div>
         ) : (
           items.map((item) => (
-            <div 
-              key={item.id} 
+            <button
+              type="button"
+              key={item.id}
               onClick={() => onSelect(item)}
-              className="bg-slate-800/50 border border-slate-700 rounded-2xl overflow-hidden flex flex-col sm:flex-row hover:bg-slate-800 transition-colors group cursor-pointer active:scale-[0.99] transition-transform"
+              aria-label={item.landmarkName}
+              className="w-full text-left bg-slate-800/50 border border-slate-700 rounded-2xl overflow-hidden flex flex-col sm:flex-row hover:bg-slate-800 transition-colors group cursor-pointer active:scale-[0.99] transition-transform"
             >
               {/* Image Container */}
               <div className="w-full h-48 sm:w-48 sm:h-48 flex-shrink-0 bg-slate-900 relative overflow-hidden">
@@ -113,7 +123,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
                   {item.summary}
                 </p>
               </div>
-            </div>
+            </button>
           ))
         )}
       </div>

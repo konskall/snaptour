@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { HelpCircle, CheckCircle, RefreshCcw } from 'lucide-react';
 import { LandmarkIdentification, Translation } from '../types';
 
@@ -10,9 +10,15 @@ interface LandmarkSelectorProps {
 }
 
 export const LandmarkSelector: React.FC<LandmarkSelectorProps> = ({ identification, onSelect, onCancel, t }) => {
-  const allOptions = [identification.name, ...identification.alternatives];
+  const allOptions = [identification.name, ...(identification.alternatives ?? [])];
   // Remove duplicates
   const uniqueOptions = Array.from(new Set(allOptions));
+
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center w-full h-full p-6 pt-20 animate-fade-in">
@@ -21,10 +27,10 @@ export const LandmarkSelector: React.FC<LandmarkSelectorProps> = ({ identificati
           <div className="bg-amber-500/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-amber-400">
             <HelpCircle size={32} />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">{t.selectMatch}</h2>
+          <h2 ref={headingRef} tabIndex={-1} className="text-2xl font-bold text-white mb-2 outline-none">{t.selectMatch}</h2>
           <p className="text-slate-400 mb-2">{t.uncertain}</p>
           <div className="inline-block px-3 py-1 rounded-full bg-slate-700/80 text-xs font-mono text-slate-300 border border-slate-600">
-             {t.confidence}: {(identification.confidence * 100).toFixed(0)}%
+             {t.confidence}: {(Number.isFinite(identification.confidence) ? identification.confidence * 100 : 0).toFixed(0)}%
           </div>
         </div>
 

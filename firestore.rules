@@ -2,7 +2,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{uid}/history/{doc} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.thumbnail is string
+        && request.resource.data.thumbnail.size() < 700000
+        && request.resource.data.landmarkName is string
+        && request.resource.data.landmarkName.size() < 500
+        && request.resource.data.summary is string;
     }
   }
 }

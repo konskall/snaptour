@@ -115,6 +115,11 @@ export interface Translation {
   nearbyTitle: string;
   viewMap: string;
   close: string;
-  audioLimit: string;
   inAppBrowserWarning: string;
+  signIn: string;
+  dismiss: string;
+  signInFailed: string;
+  signInNotConfigured: string;
+  chatError: string;
+  shareText: string;
 }

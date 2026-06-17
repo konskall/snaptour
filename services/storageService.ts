@@ -1,8 +1,8 @@
 import { HistoryItem } from '../types';
 import { db } from './firebase';
-import { capItems, idsToEvict } from './historyUtils';
+import { capItems, MAX_HISTORY_ITEMS } from './historyUtils';
 import {
-  collection, doc, getDocs, setDoc, query, orderBy, limit, writeBatch,
+  collection, doc, getDocs, setDoc, query, orderBy, limit, writeBatch, getCountFromServer,
 } from 'firebase/firestore';
 
 // Helper to resize image for thumbnail storage
@@ -90,21 +90,25 @@ export async function getHistory(uid: string): Promise<HistoryItem[]> {
   }
 }
 
-export async function saveHistoryItem(uid: string, item: HistoryItem): Promise<void> {
-  writeCache(uid, [item, ...readCache(uid)]); // optimistic cache update
-  if (!db) return;
+export async function saveHistoryItem(uid: string, item: HistoryItem): Promise<HistoryItem[]> {
+  const optimistic = capItems([item, ...readCache(uid)]);
+  writeCache(uid, optimistic); // optimistic cache update
+  if (!db) return optimistic;
   try {
     await setDoc(doc(historyCol(uid), item.id), item);
-    const snap = await getDocs(query(historyCol(uid), orderBy('timestamp', 'desc')));
-    const evict = idsToEvict(snap.docs.map(d => d.data() as HistoryItem));
-    if (evict.length) {
+    // Evict via COUNT (avoids a full collection read).
+    const cnt = (await getCountFromServer(historyCol(uid))).data().count;
+    if (cnt > MAX_HISTORY_ITEMS) {
+      const overflow = cnt - MAX_HISTORY_ITEMS;
+      const oldest = await getDocs(query(historyCol(uid), orderBy('timestamp', 'asc'), limit(overflow)));
       const batch = writeBatch(db);
-      evict.forEach(id => batch.delete(doc(historyCol(uid), id)));
+      oldest.docs.forEach(d => batch.delete(d.ref));
       await batch.commit();
     }
   } catch (e) {
     console.error('saveHistoryItem failed (kept in local cache)', e);
   }
+  return optimistic;
 }
 
 export async function clearHistory(uid: string): Promise<void> {
@@ -123,7 +127,7 @@ export async function clearHistory(uid: string): Promise<void> {
 const legacyKey = (email: string) => `snaptour_history_${email}`;
 
 export async function migrateLocalHistory(uid: string, email: string): Promise<void> {
-  if (!db) return;
+  if (!db) return; // guest mode must NOT touch the legacy key
   const raw = localStorage.getItem(legacyKey(email));
   if (!raw) return;
   try {
@@ -134,8 +138,11 @@ export async function migrateLocalHistory(uid: string, email: string): Promise<v
     const batch = writeBatch(db);
     localItems.forEach(it => batch.set(doc(historyCol(uid), it.id), it));
     await batch.commit();
-    localStorage.removeItem(legacyKey(email));
   } catch (e) {
     console.error('migrateLocalHistory failed', e);
+  } finally {
+    // Remove the legacy email-keyed PII on every db-configured path
+    // (success, cloud-already-has-data, or thrown commit).
+    localStorage.removeItem(legacyKey(email));
   }
 }

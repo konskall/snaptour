@@ -14,9 +14,9 @@ export const ScanningView: React.FC<ScanningViewProps> = ({ imageSrc, t }) => {
         
         {/* Image being scanned */}
         {imageSrc ? (
-          <img 
-            src={imageSrc} 
-            alt="Analyzing" 
+          <img
+            src={imageSrc}
+            alt={t.analyzing}
             className="w-full h-full object-cover opacity-60"
           />
         ) : (

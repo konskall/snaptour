@@ -29,16 +29,6 @@ const getAI = async (): Promise<GoogleGenAI> => {
   return aiInstance;
 };
 
-// Singleton AudioContext for decoding to prevent "Max AudioContexts" error
-let decodingContext: AudioContext | null = null;
-const getDecodingContext = () => {
-  if (!decodingContext) {
-    // Use a standard sample rate, though decodeAudioData usually handles resampling
-    decodingContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-  }
-  return decodingContext;
-};
-
 // Retry helper for 429 (Rate Limit) and 503 (Service Unavailable) errors
 async function retryOperation<T>(operation: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
   try {
@@ -106,8 +96,13 @@ export async function identifyLandmarkFromImage(base64Image: string, mimeType: s
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       
       if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]) as LandmarkIdentification;
-        return data;
+        const data = JSON.parse(jsonMatch[0]);
+        // Normalize so callers never receive undefined fields (prevents render crash in LandmarkSelector).
+        return {
+          name: typeof data?.name === 'string' ? data.name : '',
+          confidence: (typeof data?.confidence === 'number' && Number.isFinite(data.confidence)) ? data.confidence : 0,
+          alternatives: Array.isArray(data?.alternatives) ? data.alternatives.filter((a: unknown) => typeof a === 'string') : [],
+        };
       } else {
         throw new Error("Invalid response format from AI");
       }
@@ -172,12 +167,14 @@ export async function generateNarrationAudio(text: string): Promise<AudioBuffer 
           return null;
       }
 
-      // Use shared context for decoding to avoid memory leaks/limits
-      const audioContext = getDecodingContext();
-      
+      // Per-call OfflineAudioContext for decoding; avoids a never-closed realtime AudioContext leak.
+      // decodeAudioData only calls createBuffer, which works on an OfflineAudioContext.
+      const audioContext = new (window.OfflineAudioContext || (window as any).webkitOfflineAudioContext)(1, 1, 24000);
+
       const audioBuffer = await decodeAudioData(
         decodeBase64(base64Audio),
-        audioContext,
+        // decodeAudioData only uses createBuffer (a BaseAudioContext member); OfflineAudioContext suffices.
+        audioContext as unknown as AudioContext,
         24000,
         1
       );
@@ -204,31 +201,27 @@ export async function generateNarrationAudio(text: string): Promise<AudioBuffer 
 
 // 4. Chat with the guide
 export async function getChatResponse(landmarkName: string, history: ChatMessage[], question: string, language: string): Promise<string> {
-  try {
-    // Construct context from previous messages
-    const context = history.map(msg => `${msg.sender === 'user' ? 'User' : 'Guide'}: ${msg.text}`).join('\n');
-    
-    const prompt = `
-      You are an expert tour guide at ${landmarkName}. 
+  // Construct context from previous messages
+  const context = history.map(msg => `${msg.sender === 'user' ? 'User' : 'Guide'}: ${msg.text}`).join('\n');
+
+  const prompt = `
+      You are an expert tour guide at ${landmarkName}.
       Context of conversation:
       ${context}
-      
+
       User asks: ${question}
-      
+
       Answer in ${language}. Keep it concise (under 50 words), friendly, and helpful. If asked about prices or opening hours, use your knowledge base or estimate based on typical values for such places.
     `;
 
-    const ai = await getAI();
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-    });
+  // Let errors propagate; the caller (ChatView) shows a localized t.chatError.
+  const ai = await getAI();
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: prompt,
+  });
 
-    return response.text || "I'm sorry, I couldn't think of a response.";
-  } catch (error) {
-    console.error("Chat error:", error);
-    return "I'm having trouble connecting to the tour guide service right now.";
-  }
+  return response.text ?? '';
 }
 
 // 5. Get nearby places recommendations

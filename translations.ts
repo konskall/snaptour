@@ -58,8 +58,13 @@ export const translations: Record<string, Translation> = {
     nearbyTitle: "What else is nearby?",
     viewMap: "View on Map",
     close: "Close",
-    audioLimit: "Audio unavailable (Usage Limit)",
-    inAppBrowserWarning: "Google Login is blocked in this app. Tap the menu (...) and select 'Open in Browser'."
+    inAppBrowserWarning: "Google Login is blocked in this app. Tap the menu (...) and select 'Open in Browser'.",
+    signIn: "Sign in",
+    dismiss: "Dismiss",
+    signInFailed: "Sign-in failed. Please try again.",
+    signInNotConfigured: "Sign-in is not configured.",
+    chatError: "I'm having trouble reaching the guide right now. Please try again.",
+    shareText: "Check out {name} on Google Maps!"
   },
   es: {
     startTitle: "Descubre el Mundo",
@@ -108,8 +113,13 @@ export const translations: Record<string, Translation> = {
     nearbyTitle: "¿Qué más hay cerca?",
     viewMap: "Ver en Mapa",
     close: "Cerrar",
-    audioLimit: "Audio no disponible (Límite)",
-    inAppBrowserWarning: "Google Login bloqueado aquí. Toca el menú (...) y elige 'Abrir en el navegador'."
+    inAppBrowserWarning: "Google Login bloqueado aquí. Toca el menú (...) y elige 'Abrir en el navegador'.",
+    signIn: "Entrar",
+    dismiss: "Descartar",
+    signInFailed: "Error al iniciar sesión. Inténtalo de nuevo.",
+    signInNotConfigured: "El inicio de sesión no está configurado.",
+    chatError: "Tengo problemas para conectar con el guía ahora mismo. Inténtalo de nuevo.",
+    shareText: "¡Mira {name} en Google Maps!"
   },
   fr: {
     startTitle: "Découvrez le Monde",
@@ -158,8 +168,13 @@ export const translations: Record<string, Translation> = {
     nearbyTitle: "Quoi d'autre à proximité ?",
     viewMap: "Voir sur la carte",
     close: "Fermer",
-    audioLimit: "Audio indisponible (Limite)",
-    inAppBrowserWarning: "Google Login bloqué. Touchez le menu (...) et 'Ouvrir dans le navigateur'."
+    inAppBrowserWarning: "Google Login bloqué. Touchez le menu (...) et 'Ouvrir dans le navigateur'.",
+    signIn: "Connexion",
+    dismiss: "Ignorer",
+    signInFailed: "Échec de la connexion. Veuillez réessayer.",
+    signInNotConfigured: "La connexion n'est pas configurée.",
+    chatError: "J'ai du mal à joindre le guide pour le moment. Veuillez réessayer.",
+    shareText: "Découvrez {name} sur Google Maps !"
   },
   de: {
     startTitle: "Entdecke die Welt",
@@ -208,8 +223,13 @@ export const translations: Record<string, Translation> = {
     nearbyTitle: "Was gibt es in der Nähe?",
     viewMap: "Auf Karte ansehen",
     close: "Schließen",
-    audioLimit: "Audio nicht verfügbar",
-    inAppBrowserWarning: "Google Login blockiert. Tippen Sie auf (...) und 'Im Browser öffnen'."
+    inAppBrowserWarning: "Google Login blockiert. Tippen Sie auf (...) und 'Im Browser öffnen'.",
+    signIn: "Anmelden",
+    dismiss: "Verwerfen",
+    signInFailed: "Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    signInNotConfigured: "Die Anmeldung ist nicht konfiguriert.",
+    chatError: "Ich kann den Guide gerade nicht erreichen. Bitte versuchen Sie es erneut.",
+    shareText: "Schau dir {name} auf Google Maps an!"
   },
   zh: {
     startTitle: "探索世界",
@@ -258,8 +278,13 @@ export const translations: Record<string, Translation> = {
     nearbyTitle: "附近还有什么？",
     viewMap: "在地图上查看",
     close: "关闭",
-    audioLimit: "音频不可用 (限制)",
-    inAppBrowserWarning: "Google 登录受限。请点击菜单 (...) 并选择“在浏览器中打开”。"
+    inAppBrowserWarning: "Google 登录受限。请点击菜单 (...) 并选择“在浏览器中打开”。",
+    signIn: "登录",
+    dismiss: "忽略",
+    signInFailed: "登录失败，请重试。",
+    signInNotConfigured: "登录未配置。",
+    chatError: "暂时无法连接向导，请重试。",
+    shareText: "在 Google 地图上查看 {name}！"
   },
   hi: {
     startTitle: "दुनिया की खोज करें",
@@ -308,8 +333,13 @@ export const translations: Record<string, Translation> = {
     nearbyTitle: "आस-पास और क्या है?",
     viewMap: "मानचित्र पर देखें",
     close: "बंद करें",
-    audioLimit: "ऑडियो उपलब्ध नहीं",
-    inAppBrowserWarning: "Google लॉगिन अवरुद्ध है। (...) पर टैप करें और 'ब्राउज़र में खोलें' चुनें।"
+    inAppBrowserWarning: "Google लॉगिन अवरुद्ध है। (...) पर टैप करें और 'ब्राउज़र में खोलें' चुनें।",
+    signIn: "साइन इन",
+    dismiss: "खारिज करें",
+    signInFailed: "साइन-इन विफल। कृपया पुनः प्रयास करें।",
+    signInNotConfigured: "साइन-इन कॉन्फ़िगर नहीं है।",
+    chatError: "अभी गाइड से जुड़ने में समस्या हो रही है। कृपया पुनः प्रयास करें।",
+    shareText: "Google मानचित्र पर {name} देखें!"
   },
   el: {
     startTitle: "Ανακαλύψτε τον Κόσμο",
@@ -358,7 +388,12 @@ export const translations: Record<string, Translation> = {
     nearbyTitle: "Τι άλλο υπάρχει κοντά;",
     viewMap: "Προβολή Χάρτη",
     close: "Κλείσιμο",
-    audioLimit: "Η αφήγηση δεν είναι διαθέσιμη (Προσπαθήστε ξανά)",
-    inAppBrowserWarning: "Το Google Login δεν λειτουργεί εδώ. Πατήστε (...) και 'Άνοιγμα σε Browser'."
+    inAppBrowserWarning: "Το Google Login δεν λειτουργεί εδώ. Πατήστε (...) και 'Άνοιγμα σε Browser'.",
+    signIn: "Σύνδεση",
+    dismiss: "Απόρριψη",
+    signInFailed: "Η σύνδεση απέτυχε. Δοκιμάστε ξανά.",
+    signInNotConfigured: "Η σύνδεση δεν έχει ρυθμιστεί.",
+    chatError: "Δυσκολεύομαι να συνδεθώ με τον ξεναγό αυτή τη στιγμή. Δοκιμάστε ξανά.",
+    shareText: "Δείτε το {name} στους Χάρτες Google!"
   }
 };

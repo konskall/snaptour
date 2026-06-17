@@ -10,11 +10,11 @@ interface TourCardProps {
   onGenerateAudio: () => void;
   t: Translation;
   isAudioLoading?: boolean;
-  isAudioUnavailable?: boolean;
   langCode?: string;
+  langName: string;
 }
 
-export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onGenerateAudio, t, isAudioLoading = false, isAudioUnavailable = false, langCode = 'en' }) => {
+export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onGenerateAudio, t, isAudioLoading = false, langCode = 'en', langName }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [justShared, setJustShared] = useState(false);
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
@@ -67,12 +67,12 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
     // Fetch nearby places when card loads
     const fetchNearby = async () => {
       setLoadingNearby(true);
-      const places = await getNearbyPlaces(result.landmarkName, langCode);
+      const places = await getNearbyPlaces(result.landmarkName, langName);
       setNearbyPlaces(places);
       setLoadingNearby(false);
     };
     fetchNearby();
-  }, [result.landmarkName, langCode]);
+  }, [result.landmarkName, langName]);
 
   // --- NATIVE TTS LOGIC ---
 
@@ -119,15 +119,14 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
      };
 
      if (window.speechSynthesis.getVoices().length === 0) {
-         window.speechSynthesis.onvoiceschanged = () => {
-             window.speechSynthesis.onvoiceschanged = null;
+         const h = () => {
+             window.speechSynthesis.removeEventListener('voiceschanged', h);
              setVoiceAndSpeak();
          };
+         window.speechSynthesis.addEventListener('voiceschanged', h);
      } else {
          setVoiceAndSpeak();
      }
-     
-     setIsPlaying(true);
   };
 
   const pauseNative = () => {
@@ -306,7 +305,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
       try {
         await navigator.share({
           title: result.landmarkName,
-          text: `Check out ${result.landmarkName} on Google Maps!`,
+          text: t.shareText.replace('{name}', result.landmarkName),
           url: mapsUrl,
         });
       } catch (err) {
@@ -345,7 +344,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                 <MapPin size={16} />
                 <span className="text-xs font-bold tracking-wider">{t.landmarkLabel}</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight">{result.landmarkName}</h1>
+              <h2 id="tour-title" className="text-2xl sm:text-3xl font-bold text-white leading-tight">{result.landmarkName}</h2>
             </div>
             
             {/* Audio & Chat Controls */}
@@ -354,6 +353,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                 onClick={onChat}
                 className="w-12 h-12 rounded-full bg-slate-700/80 hover:bg-slate-600 text-indigo-300 flex items-center justify-center border border-slate-600 transition-all hover:scale-105"
                 title={t.askGuide}
+                aria-label={t.askGuide}
               >
                 <MessageCircle size={20} />
               </button>
@@ -366,6 +366,8 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                 ) : (
                   <button
                     onClick={handleAudioClick}
+                    aria-label={isPlaying ? 'Pause' : 'Play'}
+                    aria-pressed={isPlaying}
                     className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 ${
                         result.nativeTTSFallback 
                             ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-500/30' 
@@ -409,6 +411,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                  frameBorder="0" 
                  style={{ border: 0 }}
                  src={`https://www.google.com/maps?q=${encodeURIComponent(result.landmarkName)}&output=embed`}
+                 title={`${t.viewMap}: ${result.landmarkName}`}
                  allowFullScreen
                  className="opacity-60 group-hover:opacity-100 transition-opacity"
                ></iframe>
@@ -457,6 +460,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
             <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
               <button 
                 onClick={() => setIsSourcesOpen(!isSourcesOpen)}
+                aria-expanded={isSourcesOpen}
                 className="w-full p-4 flex items-center justify-between bg-slate-800/30 hover:bg-slate-800/50 transition-colors"
               >
                 <h3 className="text-xs font-semibold text-slate-400 tracking-wider flex items-center gap-2">
