@@ -52,42 +52,42 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
           {items.length > 0 && (
              <div className="relative">
                 {showConfirm ? (
-                  <div className="flex items-center gap-2 bg-red-900/50 border border-red-800 rounded-full px-1 py-1 animate-fade-in">
-                     <span className="text-xs text-red-200 pl-3 font-medium">{t.confirmClear}</span>
+                  <div className="flex items-center gap-1.5 bg-red-900/50 border border-red-800 rounded-full px-1 py-1 animate-fade-in">
+                     <span className="text-xs text-red-200 pl-2.5 font-medium">{t.confirmClear}</span>
                      <button
                        onClick={() => { onClear(); setShowConfirm(false); }}
-                       className="p-2 bg-red-600 rounded-full text-white hover:bg-red-500"
+                       className="p-1.5 bg-red-600 rounded-full text-white hover:bg-red-500 transition-colors"
                        aria-label={t.confirmClear}
                      >
-                       <CheckCircle size={16} />
+                       <CheckCircle size={15} />
                      </button>
                      <button
                         onClick={() => setShowConfirm(false)}
-                        className="p-2 bg-slate-700 rounded-full text-slate-300 hover:bg-slate-600"
+                        className="p-1.5 bg-slate-700 rounded-full text-slate-300 hover:bg-slate-600 transition-colors"
                         aria-label={t.close}
                      >
-                       <XCircle size={16} />
+                       <XCircle size={15} />
                      </button>
                   </div>
                 ) : (
                   <button
                     onClick={() => setShowConfirm(true)}
-                    className="bg-slate-800 hover:bg-red-900/40 text-slate-400 hover:text-red-400 p-3 rounded-full transition-all duration-300 border border-slate-700 shadow-lg"
+                    className="bg-slate-800/80 hover:bg-red-900/40 text-slate-400 hover:text-red-400 p-2 rounded-full transition-colors border border-slate-700"
                     title={t.clearHistory}
                     aria-label={t.clearHistory}
                   >
-                    <Trash2 size={20} />
+                    <Trash2 size={16} />
                   </button>
                 )}
              </div>
           )}
 
-          <button 
+          <button
             onClick={onClose}
-            className="bg-slate-800 hover:bg-slate-700 text-white p-3 px-5 rounded-full transition-all duration-300 flex items-center gap-2 border border-slate-700 shadow-lg"
+            className="bg-slate-800/80 hover:bg-slate-700 text-slate-200 py-2 px-3.5 rounded-full text-sm font-semibold transition-colors flex items-center gap-1.5 border border-slate-700"
           >
-            <Home size={20} />
-            <span className="font-medium">{t.home}</span>
+            <Home size={15} />
+            <span>{t.home}</span>
           </button>
         </div>
       </div>

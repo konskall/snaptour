@@ -15,11 +15,28 @@ import { Loader2, Globe, History, UserCircle, LogOut, Zap, AlertTriangle, Extern
 import { Logo } from './components/Logo';
 import { LANGUAGES, translations } from './translations';
 
+const VIEW_KEY = 'snaptour_view';
+
+// Restore the last meaningful view (history / result) across a page refresh,
+// so reloading doesn't kick the user back to the home screen.
+function loadPersistedView(): { state: AppState; result: AnalysisResult | null; selectedImage: string | null } {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(VIEW_KEY) || 'null');
+    if (saved?.state === AppState.SHOWING_RESULT && saved.result) {
+      return { state: AppState.SHOWING_RESULT, result: saved.result as AnalysisResult, selectedImage: saved.selectedImage ?? null };
+    }
+    if (saved?.state === AppState.VIEWING_HISTORY) {
+      return { state: AppState.VIEWING_HISTORY, result: null, selectedImage: null };
+    }
+  } catch { /* ignore malformed/unavailable storage */ }
+  return { state: AppState.IDLE, result: null, selectedImage: null };
+}
+
 const App: React.FC = () => {
-  const [state, setState] = useState<AppState>(AppState.IDLE);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [state, setState] = useState<AppState>(() => loadPersistedView().state);
+  const [selectedImage, setSelectedImage] = useState<string | null>(() => loadPersistedView().selectedImage);
   const [identificationResult, setIdentificationResult] = useState<LandmarkIdentification | null>(null);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [result, setResult] = useState<AnalysisResult | null>(() => loadPersistedView().result);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [langCode, setLangCode] = useState<string>('en');
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
@@ -49,6 +66,25 @@ const App: React.FC = () => {
   useEffect(() => {
     document.documentElement.lang = langCode;
   }, [langCode]);
+
+  // Persist the current view so a refresh restores history / a landmark result
+  // instead of resetting to the home screen. Transient/loading states are not
+  // persisted (their async work is gone after a reload).
+  useEffect(() => {
+    try {
+      if ((state === AppState.SHOWING_RESULT || state === AppState.CHATTING) && result) {
+        sessionStorage.setItem(VIEW_KEY, JSON.stringify({
+          state: AppState.SHOWING_RESULT,
+          result: { ...result, audioBuffer: null }, // AudioBuffer isn't serialisable; regenerated on demand
+          selectedImage,
+        }));
+      } else if (state === AppState.VIEWING_HISTORY) {
+        sessionStorage.setItem(VIEW_KEY, JSON.stringify({ state: AppState.VIEWING_HISTORY }));
+      } else {
+        sessionStorage.removeItem(VIEW_KEY);
+      }
+    } catch { /* sessionStorage unavailable / quota exceeded */ }
+  }, [state, result, selectedImage]);
 
   // Publish the live header height to a CSS var so views (via .pt-header) clear it
   // exactly — accounts for the notch, the setup banner and late font reflow.
@@ -422,10 +458,12 @@ const App: React.FC = () => {
             >
               {currentLang && (
                 <img
-                  src={`https://flagcdn.com/w40/${currentLang.countryCode}.png`}
+                  src={`https://cdn.jsdelivr.net/gh/HatScripts/circle-flags/flags/${currentLang.countryCode}.svg`}
                   alt={currentLang.name}
+                  width={22}
+                  height={22}
                   decoding="async"
-                  className="w-5 h-3.5 object-cover rounded-sm"
+                  className="w-[22px] h-[22px] rounded-full ring-1 ring-white/20"
                 />
               )}
               {/* Show only Name, not Flag emoji since we use image now */}
@@ -445,10 +483,12 @@ const App: React.FC = () => {
                   >
                     <div className="flex items-center">
                       <img
-                        src={`https://flagcdn.com/w40/${lang.countryCode}.png`}
+                        src={`https://cdn.jsdelivr.net/gh/HatScripts/circle-flags/flags/${lang.countryCode}.svg`}
                         alt={lang.name}
+                        width={22}
+                        height={22}
                         decoding="async"
-                        className="w-5 h-3.5 object-cover rounded-sm mr-3"
+                        className="w-[22px] h-[22px] rounded-full ring-1 ring-white/10 mr-3"
                       />
                       <span>{lang.label}</span>
                     </div>
