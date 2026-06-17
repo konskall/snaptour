@@ -38,15 +38,23 @@ function loadPersistedView(): { state: AppState; result: AnalysisResult | null; 
 const DebugViewport: React.FC = () => {
   const [info, setInfo] = useState('');
   useEffect(() => {
+    const probe = (unit: string) => {
+      const d = document.createElement('div');
+      d.style.cssText = `position:fixed;top:0;left:-9999px;width:1px;height:${unit};pointer-events:none;`;
+      document.body.appendChild(d);
+      const h = Math.round(d.getBoundingClientRect().height);
+      d.remove();
+      return h;
+    };
     const read = () => {
       const vv = window.visualViewport;
       const standalone = (window.navigator as any).standalone === true
         || window.matchMedia('(display-mode: standalone)').matches;
       const appH = getComputedStyle(document.documentElement).getPropertyValue('--app-height').trim();
       setInfo(
-        `inner=${window.innerHeight} screen=${window.screen.height} ` +
-        `client=${document.documentElement.clientHeight} ` +
-        `vv=${vv ? Math.round(vv.height) : 'n/a'} appH=${appH || '—'} ` +
+        `inner=${window.innerHeight} screen=${window.screen.height} client=${document.documentElement.clientHeight} vv=${vv ? Math.round(vv.height) : '-'} | ` +
+        `vh=${probe('100vh')} dvh=${probe('100dvh')} svh=${probe('100svh')} lvh=${probe('100lvh')} | ` +
+        `appH=${appH} saT=${probe('env(safe-area-inset-top)')} saB=${probe('env(safe-area-inset-bottom)')} | ` +
         `standalone=${standalone} dpr=${window.devicePixelRatio}`
       );
     };
