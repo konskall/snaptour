@@ -38,7 +38,9 @@ const App: React.FC = () => {
   const [identificationResult, setIdentificationResult] = useState<LandmarkIdentification | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(() => loadPersistedView().result);
   const [errorMsg, setErrorMsg] = useState<string>('');
-  const [langCode, setLangCode] = useState<string>('en');
+  const [langCode, setLangCode] = useState<string>(() => {
+    try { return localStorage.getItem('snaptour_lang') || 'en'; } catch { return 'en'; }
+  });
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [missingCreds, setMissingCreds] = useState<string[]>([]);
@@ -62,9 +64,11 @@ const App: React.FC = () => {
   const t = translations[langCode] || translations['en'];
   const currentLangName = LANGUAGES.find(l => l.code === langCode)?.name || 'English';
 
-  // Keep the document language in sync for a11y / correct hyphenation & voice selection
+  // Keep the document language in sync for a11y / correct hyphenation & voice selection,
+  // and remember the choice across refreshes / sessions.
   useEffect(() => {
     document.documentElement.lang = langCode;
+    try { localStorage.setItem('snaptour_lang', langCode); } catch { /* storage unavailable */ }
   }, [langCode]);
 
   // Persist the current view so a refresh restores history / a landmark result
