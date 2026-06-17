@@ -9,7 +9,7 @@ interface SkeletonCardProps {
 
 export const SkeletonCard: React.FC<SkeletonCardProps> = ({ t, landmarkName }) => {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 sm:p-6 pt-header pb-safe pointer-events-none">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 sm:p-6 center-stage pointer-events-none">
       {/* Dim scrim behind the centered loading modal */}
       <div className="absolute inset-0 bg-black/50 pointer-events-none" />
 
@@ -73,9 +73,9 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({ t, landmarkName }) =
         </div>
 
         {/* Footer Actions Skeleton */}
-        <div className="p-4 border-t border-slate-800 bg-slate-900/50 flex gap-3">
-          <div className="flex-1 h-12 rounded-xl bg-slate-800"></div>
-          <div className="flex-[2] h-12 rounded-xl bg-slate-800"></div>
+        <div className="p-4 border-t border-slate-800 bg-slate-900/50 flex gap-2.5">
+          <div className="flex-1 h-10 rounded-lg bg-slate-800"></div>
+          <div className="flex-[2] h-10 rounded-lg bg-slate-800"></div>
         </div>
         
         {/* Loading Text Overlay */}

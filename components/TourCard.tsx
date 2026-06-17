@@ -507,12 +507,12 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 pb-safe-sheet border-t border-slate-800 bg-slate-900/50 backdrop-blur-sm flex gap-3 shrink-0">
-           <button onClick={handleShare} className="flex-1 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition-colors flex items-center justify-center gap-2 border border-slate-700">
-            {justShared ? <Check size={18} className="text-green-400" /> : <Share2 size={18} />}
+        <div className="p-4 pb-safe-sheet border-t border-slate-800 bg-slate-900/50 backdrop-blur-sm flex gap-2.5 shrink-0">
+           <button onClick={handleShare} className="flex-1 py-2.5 px-4 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold transition-colors flex items-center justify-center gap-2 border border-slate-700">
+            {justShared ? <Check size={16} className="text-green-400" /> : <Share2 size={16} />}
             <span>{justShared ? t.shareSuccess : t.share}</span>
           </button>
-          <button onClick={onReset} className="flex-[2] py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25">
+          <button onClick={onReset} className="flex-[2] py-2.5 px-4 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20">
             {t.scanAnother}
           </button>
         </div>

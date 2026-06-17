@@ -122,6 +122,15 @@ body {
   padding-top: calc(var(--header-h) + 0.5rem);
 }
 
+/* Vertically centers an overlay card at the TRUE screen center while still
+   clearing the floating header: reserving the header height symmetrically on
+   top and bottom keeps the centre at viewport/2 for any header/banner size.
+   Used by the loading overlays (scanning / skeleton). */
+.center-stage {
+  padding-top: calc(var(--header-h) + 0.5rem);
+  padding-bottom: calc(var(--header-h) + 0.5rem);
+}
+
 /* Clears the home-indicator / bottom safe area for scrolling views. */
 .pb-safe {
   padding-bottom: max(2rem, calc(1rem + env(safe-area-inset-bottom, 0px)));
