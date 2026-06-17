@@ -105,18 +105,19 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
       </div>
       </div>
 
-      {/* Footer / Credits / Disclaimer — pinned to the bottom of the screen */}
-      <div className="relative z-20 text-center space-y-1 pt-6 pointer-events-auto shrink-0">
-        <p className="text-[10px] sm:text-xs text-slate-400/60 mx-auto">
+      {/* Footer / Credits / Disclaimer — pinned to the bottom of the screen.
+          Text shadow + lighter colors keep it legible over the brighter photo. */}
+      <div className="relative z-20 text-center space-y-1 pt-6 pointer-events-auto shrink-0 [text-shadow:0_1px_3px_rgba(0,0,0,0.85)]">
+        <p className="text-[11px] sm:text-xs text-slate-200/90 mx-auto">
            {t.disclaimer}
         </p>
-        <p className="text-[10px] sm:text-xs text-slate-500 font-medium">
+        <p className="text-[11px] sm:text-xs text-slate-200 font-medium">
            {t.createdBy}{" "}
-           <a 
-             href="https://www.linkedin.com/in/konstantinos-kalliakoudis-902b90103" 
-             target="_blank" 
+           <a
+             href="https://www.linkedin.com/in/konstantinos-kalliakoudis-902b90103"
+             target="_blank"
              rel="noopener noreferrer"
-             className="text-slate-400 hover:text-indigo-400 transition-colors underline decoration-slate-600 hover:decoration-indigo-500"
+             className="text-white hover:text-indigo-300 transition-colors underline decoration-white/50 hover:decoration-indigo-300 underline-offset-2"
            >
              KonsKall
            </a>
