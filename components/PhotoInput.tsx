@@ -34,9 +34,12 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900/70 via-slate-900/40 to-slate-900/80" />
       </div>
 
-      {/* Centering wrapper: centers when content fits, scrolls when it doesn't.
+      {/* Column: card centered in the free space, credits pinned to the bottom.
           Clears the overlay header (pt-header) and the home indicator (pb-safe). */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-full px-6 pt-header pb-safe">
+      <div className="relative z-10 flex flex-col min-h-full px-6 pt-header pb-safe">
+
+      {/* Card area — centered in the available vertical space */}
+      <div className="flex-1 flex flex-col items-center justify-center w-full">
 
       {/* Main Content Card */}
       <div className="relative z-10 max-w-md w-full bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 shadow-2xl">
@@ -95,9 +98,10 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
           <span>{t.supports}</span>
         </div>
       </div>
+      </div>
 
-      {/* Footer / Credits / Disclaimer */}
-      <div className="relative z-20 text-center space-y-1 p-4 pointer-events-auto mt-4 sm:mt-8">
+      {/* Footer / Credits / Disclaimer — pinned to the bottom of the screen */}
+      <div className="relative z-20 text-center space-y-1 pt-6 pointer-events-auto shrink-0">
         <p className="text-[10px] sm:text-xs text-slate-400/60 mx-auto">
            {t.disclaimer}
         </p>
