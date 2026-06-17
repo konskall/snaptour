@@ -30,8 +30,13 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
           alt="Travel Background"
           className="w-full h-full object-cover object-center"
         />
-        {/* Dark Gradient Overlay to ensure text readability - Reduced opacity */}
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/70 via-slate-900/40 to-slate-900/80" />
+        {/* Dark gradient overlay for text readability — lightened from 70/40/80 to 52/28/68
+            (slate-900 = rgb(15,23,42)). Inline gradient because these opacities aren't
+            standard Tailwind steps. */}
+        <div
+          className="absolute inset-0"
+          style={{ backgroundImage: 'linear-gradient(to bottom, rgba(15,23,42,0.52), rgba(15,23,42,0.28) 50%, rgba(15,23,42,0.68))' }}
+        />
       </div>
 
       {/* Column: card centered in the free space, credits pinned to the bottom.
