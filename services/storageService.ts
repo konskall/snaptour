@@ -2,7 +2,7 @@ import { HistoryItem } from '../types';
 import { db } from './firebase';
 import { capItems, idsToEvict } from './historyUtils';
 import {
-  collection, doc, getDocs, setDoc, query, orderBy, writeBatch,
+  collection, doc, getDocs, setDoc, query, orderBy, limit, writeBatch,
 } from 'firebase/firestore';
 
 // Helper to resize image for thumbnail storage
@@ -117,5 +117,25 @@ export async function clearHistory(uid: string): Promise<void> {
     await batch.commit();
   } catch (e) {
     console.error('clearHistory failed', e);
+  }
+}
+
+const legacyKey = (email: string) => `snaptour_history_${email}`;
+
+export async function migrateLocalHistory(uid: string, email: string): Promise<void> {
+  if (!db) return;
+  const raw = localStorage.getItem(legacyKey(email));
+  if (!raw) return;
+  try {
+    const localItems = capItems(JSON.parse(raw) as HistoryItem[]);
+    if (localItems.length === 0) return;
+    const existing = await getDocs(query(historyCol(uid), limit(1)));
+    if (!existing.empty) return; // cloud already has data — don't overwrite
+    const batch = writeBatch(db);
+    localItems.forEach(it => batch.set(doc(historyCol(uid), it.id), it));
+    await batch.commit();
+    localStorage.removeItem(legacyKey(email));
+  } catch (e) {
+    console.error('migrateLocalHistory failed', e);
   }
 }
