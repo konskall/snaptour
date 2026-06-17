@@ -52,13 +52,13 @@ async function retryOperation<T>(operation: () => Promise<T>, retries = 3, delay
   }
 }
 
-// 1. Identify the landmark using gemini-2.5-flash with Google Search Grounding for ACCURACY
+// 1. Identify the landmark using gemini-3.1-flash-lite with Google Search Grounding for ACCURACY
 export async function identifyLandmarkFromImage(base64Image: string, mimeType: string, language: string): Promise<LandmarkIdentification> {
   return retryOperation(async () => {
     try {
       const ai = await getAI();
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.1-flash-lite',
         contents: {
           parts: [
             {
@@ -114,13 +114,13 @@ export async function identifyLandmarkFromImage(base64Image: string, mimeType: s
   });
 }
 
-// 2. Get detailed history using gemini-2.5-flash with Google Search (Search Grounding)
+// 2. Get detailed history using gemini-3.1-flash-lite with Google Search (Search Grounding)
 export async function getLandmarkDetails(landmarkName: string, language: string): Promise<{ text: string; sources: GroundingChunk[] }> {
   return retryOperation(async () => {
     try {
       const ai = await getAI();
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.1-flash-lite",
         contents: `Tell me the history and 3 interesting hidden facts about ${landmarkName} in ${language}. Keep the tone engaging, like a passionate tour guide. Limit to 150 words.`,
         config: {
           tools: [{ googleSearch: {} }],
@@ -217,7 +217,7 @@ export async function getChatResponse(landmarkName: string, history: ChatMessage
   // Let errors propagate; the caller (ChatView) shows a localized t.chatError.
   const ai = await getAI();
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-3.1-flash-lite",
     contents: prompt,
   });
 
@@ -230,7 +230,7 @@ export async function getNearbyPlaces(landmarkName: string, language: string): P
     const ai = await getAI();
     const { Type } = await loadSdk();
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.1-flash-lite",
       contents: `List 3 interesting places to visit near ${landmarkName}. Provide the name and a short description (under 10 words) for each in ${language}.`,
       config: {
         responseMimeType: "application/json",
