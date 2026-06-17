@@ -23,7 +23,7 @@ describe('historyUtils', () => {
     const out = capItems(items);
     expect(out).toHaveLength(50);
     expect(out[0].id).toBe('id54'); // newest first
-    expect(out.at(-1)!.id).toBe('id5');
+    expect(out[out.length - 1].id).toBe('id5');
   });
 
   it('idsToEvict returns ids beyond the cap (oldest), empty when within cap', () => {
