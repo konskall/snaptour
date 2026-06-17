@@ -3,12 +3,12 @@
 @tailwind utilities;
 
 html, body {
-  /* Height comes from JS (window.innerHeight, set in index.html as --app-height)
-     because iOS Safari / standalone PWA miscompute 100vh/100dvh and leave a dark
-     gap at the bottom ("app cut off"). 100dvh is only the pre-JS fallback. The
-     whole chain (html, body, #root, app root) uses the same value so nothing is
-     laid out taller than what fills the screen. */
-  height: var(--app-height, 100dvh);
+  /* Height source (see index.html): in-browser, JS sets --app-height to
+     window.innerHeight (the visible area between toolbars). In an installed PWA
+     the var is left unset so this 100vh fallback fills the whole screen
+     (full-bleed under the translucent status bar). Same value across the chain
+     (html, body, #root, app root) so nothing is laid out off-screen. */
+  height: var(--app-height, 100vh);
   /* Match the app's darkest surface so any uncovered safe area (status bar /
      home indicator on iOS PWA) blends in instead of showing a coloured strip. */
   background-color: #0f172a;
@@ -26,7 +26,7 @@ body {
 }
 
 #root {
-  height: var(--app-height, 100dvh);
+  height: var(--app-height, 100vh);
 }
 
 /* Custom scrollbar for better aesthetics */

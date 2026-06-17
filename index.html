@@ -3,14 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <!-- Lock the app to the REAL usable viewport height. iOS Safari/standalone PWA
-         miscompute 100vh/100dvh (the app gets "cut off" with a gap at the bottom);
-         window.innerHeight is the reliable usable height and is stable when the
-         keyboard opens on iOS. Set it as a CSS var as early as possible. -->
+    <!-- App height strategy:
+         - Installed PWA (standalone): the web view IS the whole screen and the
+           status bar is translucent (full-bleed), so let CSS 100vh fill it. Do
+           NOT use window.innerHeight here — iOS reports it 44px short (the status
+           bar), which would leave a dark gap at the BOTTOM.
+         - In-browser (Safari/Chrome): window.innerHeight is the reliable visible
+           area between the toolbars; use it so the app isn't cut off by chrome. -->
     <script>
       (function () {
+        function isStandalone() {
+          return window.navigator.standalone === true
+            || window.matchMedia('(display-mode: standalone)').matches;
+        }
         function setAppHeight() {
-          document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
+          if (isStandalone()) {
+            document.documentElement.style.removeProperty('--app-height'); // CSS 100vh fills the screen
+          } else {
+            document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
+          }
         }
         setAppHeight();
         window.addEventListener('resize', setAppHeight);
@@ -42,7 +53,7 @@
 <meta name="twitter:image" content="https://konskall.github.io/snaptour/ogsnaptour.png?v=3">
 <!-- Apple / iOS -->
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SnapTour">
 <!-- Android / Chrome -->
 <meta name="theme-color" content="#0f172a">
