@@ -32,50 +32,6 @@ function loadPersistedView(): { state: AppState; result: AnalysisResult | null; 
   return { state: AppState.IDLE, result: null, selectedImage: null };
 }
 
-// Temporary on-device diagnostics — visible only with ?debug in the URL.
-const DebugViewport: React.FC = () => {
-  const [info, setInfo] = useState('');
-  useEffect(() => {
-    const probe = (unit: string) => {
-      const d = document.createElement('div');
-      d.style.cssText = `position:fixed;top:0;left:-9999px;width:1px;height:${unit};pointer-events:none;`;
-      document.body.appendChild(d);
-      const h = Math.round(d.getBoundingClientRect().height);
-      d.remove();
-      return h;
-    };
-    const read = () => {
-      const vv = window.visualViewport;
-      const standalone = (window.navigator as any).standalone === true
-        || window.matchMedia('(display-mode: standalone)').matches;
-      const appH = getComputedStyle(document.documentElement).getPropertyValue('--app-height').trim();
-      setInfo(
-        `inner=${window.innerHeight} screen=${window.screen.height} client=${document.documentElement.clientHeight} vv=${vv ? Math.round(vv.height) : '-'} | ` +
-        `vh=${probe('100vh')} dvh=${probe('100dvh')} svh=${probe('100svh')} lvh=${probe('100lvh')} | ` +
-        `appH=${appH || 'unset'} saT=${probe('env(safe-area-inset-top)')} saB=${probe('env(safe-area-inset-bottom)')} | ` +
-        `standalone=${standalone} dpr=${window.devicePixelRatio}`
-      );
-    };
-    read();
-    window.addEventListener('resize', read);
-    window.visualViewport?.addEventListener('resize', read);
-    return () => {
-      window.removeEventListener('resize', read);
-      window.visualViewport?.removeEventListener('resize', read);
-    };
-  }, []);
-  return (
-    <div style={{
-      position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 9999,
-      background: 'rgba(220,0,0,0.92)', color: '#fff', fontSize: '11px',
-      lineHeight: 1.3, padding: '6px 8px', textAlign: 'center',
-      pointerEvents: 'none', fontFamily: 'monospace', wordBreak: 'break-all',
-    }}>
-      {info}
-    </div>
-  );
-};
-
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>(() => loadPersistedView().state);
   const [selectedImage, setSelectedImage] = useState<string | null>(() => loadPersistedView().selectedImage);
@@ -440,7 +396,6 @@ const App: React.FC = () => {
 
   return (
     <div className="relative w-full overflow-hidden bg-slate-900 text-white" style={{ ...backgroundStyle, height: 'var(--app-height, 100vh)' }}>
-      {new URLSearchParams(window.location.search).has('debug') && <DebugViewport />}
       {selectedImage && <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-all duration-1000" />}
 
       {/* In-App Browser Warning Banner */}
