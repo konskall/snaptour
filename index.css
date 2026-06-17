@@ -3,12 +3,12 @@
 @tailwind utilities;
 
 html, body {
-  /* Use the DYNAMIC viewport unit for the whole height chain so html / body /
-     #root collapse to the SAME height as the app root (also 100dvh). Using
-     height:100% here resolves against the large (toolbar-hidden) viewport while
-     the app root used the small dynamic one — the leftover strip rendered as a
-     dark gap at the bottom on iOS ("app cut off"). Keeping one unit removes it. */
-  height: 100dvh;
+  /* Height comes from JS (window.innerHeight, set in index.html as --app-height)
+     because iOS Safari / standalone PWA miscompute 100vh/100dvh and leave a dark
+     gap at the bottom ("app cut off"). 100dvh is only the pre-JS fallback. The
+     whole chain (html, body, #root, app root) uses the same value so nothing is
+     laid out taller than what fills the screen. */
+  height: var(--app-height, 100dvh);
   /* Match the app's darkest surface so any uncovered safe area (status bar /
      home indicator on iOS PWA) blends in instead of showing a coloured strip. */
   background-color: #0f172a;
@@ -26,7 +26,7 @@ body {
 }
 
 #root {
-  height: 100dvh;
+  height: var(--app-height, 100dvh);
 }
 
 /* Custom scrollbar for better aesthetics */
