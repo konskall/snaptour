@@ -43,7 +43,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const missing = [];
     if (!process.env.API_KEY) missing.push("API_KEY");
-    if (!process.env.GOOGLE_CLIENT_ID) missing.push("GOOGLE_CLIENT_ID");
+    if (!isFirebaseConfigured()) missing.push("FIREBASE_*");
     setMissingCreds(missing);
   }, []);
 
