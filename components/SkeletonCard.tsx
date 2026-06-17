@@ -73,7 +73,7 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({ t, landmarkName }) =
         </div>
 
         {/* Footer Actions Skeleton */}
-        <div className="p-4 border-t border-slate-800 bg-slate-900/50 flex gap-3">
+        <div className="p-4 pb-safe-sheet border-t border-slate-800 bg-slate-900/50 flex gap-3">
           <div className="flex-1 h-12 rounded-xl bg-slate-800"></div>
           <div className="flex-[2] h-12 rounded-xl bg-slate-800"></div>
         </div>

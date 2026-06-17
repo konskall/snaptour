@@ -88,3 +88,30 @@ body {
   background: #475569;
   border-radius: 4px;
 }
+
+/* ------------------------------------------------------------------ */
+/* Safe-area / header-clearance helpers (mobile + iOS PWA)            */
+/* The overlay header floats above the content, so every full-height  */
+/* view must offset its top by the header's real height (which        */
+/* includes env(safe-area-inset-top) + any setup banner). App.tsx     */
+/* measures the live header and writes the exact px into --header-h;   */
+/* the value below is the pre-JS fallback.                            */
+/* ------------------------------------------------------------------ */
+:root {
+  --header-h: calc(6rem + env(safe-area-inset-top, 0px));
+}
+
+/* Clears the fixed/translucent header (notch + banner aware). */
+.pt-header {
+  padding-top: calc(var(--header-h) + 0.5rem);
+}
+
+/* Clears the home-indicator / bottom safe area for scrolling views. */
+.pb-safe {
+  padding-bottom: max(2rem, calc(1rem + env(safe-area-inset-bottom, 0px)));
+}
+
+/* Smaller bottom clearance for docked bottom-sheet footers. */
+.pb-safe-sheet {
+  padding-bottom: max(1rem, calc(0.5rem + env(safe-area-inset-bottom, 0px)));
+}

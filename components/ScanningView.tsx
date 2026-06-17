@@ -9,7 +9,7 @@ interface ScanningViewProps {
 
 export const ScanningView: React.FC<ScanningViewProps> = ({ imageSrc, t }) => {
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full p-6 animate-fade-in relative z-20">
+    <div className="flex flex-col items-center justify-center w-full h-full p-6 pt-header pb-safe animate-fade-in relative z-20">
       <div className="relative max-w-sm w-full aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl border border-slate-700/50 bg-slate-900">
         
         {/* Image being scanned */}

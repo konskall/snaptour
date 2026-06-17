@@ -129,7 +129,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
         </div>
 
         {/* Input */}
-        <div className="p-4 pb-8 sm:pb-4 border-t border-slate-700 bg-slate-800/50 shrink-0">
+        <div className="p-4 pb-safe-sheet border-t border-slate-700 bg-slate-800/50 shrink-0">
           <div className="flex gap-2">
             <input
               type="text"

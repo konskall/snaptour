@@ -41,7 +41,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
   }, []);
 
   return (
-    <div className="flex flex-col w-full h-full p-6 pt-24 animate-fade-in bg-slate-900 overflow-hidden">
+    <div className="flex flex-col w-full h-full p-6 pt-header animate-fade-in bg-slate-900 overflow-hidden">
 
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
@@ -92,7 +92,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pb-20">
+      <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pb-safe">
         {items.length === 0 ? (
           <div className="h-64 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-700 rounded-2xl">
             <MapPin size={48} className="mb-4 opacity-50" />

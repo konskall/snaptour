@@ -38,6 +38,9 @@ const App: React.FC = () => {
   // Refs to the menu trigger buttons for focus restore on Escape
   const langBtnRef = useRef<HTMLButtonElement>(null);
   const userBtnRef = useRef<HTMLButtonElement>(null);
+  // The overlay header floats above content; measure its real height (incl.
+  // notch safe-area + any setup banner) so every view can offset clear of it.
+  const headerRef = useRef<HTMLElement>(null);
 
   const t = translations[langCode] || translations['en'];
   const currentLangName = LANGUAGES.find(l => l.code === langCode)?.name || 'English';
@@ -46,6 +49,39 @@ const App: React.FC = () => {
   useEffect(() => {
     document.documentElement.lang = langCode;
   }, [langCode]);
+
+  // Publish the live header height to a CSS var so views (via .pt-header) clear it
+  // exactly — accounts for the notch, the setup banner and late font reflow.
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const update = () => {
+      const bottom = el.getBoundingClientRect().bottom;
+      if (bottom > 0) root.style.setProperty('--header-h', `${Math.round(bottom)}px`);
+    };
+    update();
+    // Re-measure after first paint and after web fonts settle, since either can
+    // change the header height/position before the layout is final.
+    const raf = requestAnimationFrame(update);
+    (document as any).fonts?.ready?.then(update).catch(() => {});
+    // The header has `transition-all`, so a banner toggling its `top` animates
+    // over ~150ms — re-measure once that settles (plus a safety net).
+    const settle = window.setTimeout(update, 300);
+    el.addEventListener('transitionend', update);
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(settle);
+      el.removeEventListener('transitionend', update);
+      ro.disconnect();
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, [isInAppBrowser, missingCreds.length]);
 
   useEffect(() => {
     const missing = [];
@@ -313,7 +349,7 @@ const App: React.FC = () => {
   const currentLang = LANGUAGES.find(l => l.code === langCode);
 
   return (
-    <div className="relative w-full h-[100svh] overflow-hidden bg-slate-900 text-white" style={backgroundStyle}>
+    <div className="relative w-full h-[100dvh] overflow-hidden bg-slate-900 text-white" style={backgroundStyle}>
       {selectedImage && <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-all duration-1000" />}
 
       {/* In-App Browser Warning Banner */}
@@ -343,6 +379,7 @@ const App: React.FC = () => {
       )}
 
       <header
+        ref={headerRef}
         className={`absolute ${isInAppBrowser ? 'top-16' : missingCreds.length > 0 ? 'top-10' : 'top-0'} left-0 right-0 p-6 z-40 flex items-center justify-between pointer-events-none transition-all`}
         style={{
           // Keep existing p-6 (1.5rem) baseline while honoring device safe-area insets
@@ -545,7 +582,7 @@ const App: React.FC = () => {
         )}
 
         {state === AppState.ERROR && (
-          <div className="flex flex-col items-center justify-center h-full p-8 text-center animate-fade-in">
+          <div className="flex flex-col items-center justify-center h-full p-8 pt-header pb-safe text-center animate-fade-in">
             <div className="bg-red-500/20 p-6 rounded-full mb-6 text-red-400">
                <Zap size={48} />
             </div>

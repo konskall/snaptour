@@ -17,8 +17,8 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full p-6 pt-24 animate-fade-in">
-      
+    <div className="relative w-full h-full overflow-y-auto custom-scrollbar animate-fade-in">
+
       {/* Background Image Layer - Fixed to ensure full coverage on all devices */}
       <div className="fixed inset-0 z-0 w-full h-full">
         <img
@@ -33,6 +33,10 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
         {/* Dark Gradient Overlay to ensure text readability - Reduced opacity */}
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900/70 via-slate-900/40 to-slate-900/80" />
       </div>
+
+      {/* Centering wrapper: centers when content fits, scrolls when it doesn't.
+          Clears the overlay header (pt-header) and the home indicator (pb-safe). */}
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-full px-6 pt-header pb-safe">
 
       {/* Main Content Card */}
       <div className="relative z-10 max-w-md w-full bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 shadow-2xl">
@@ -108,6 +112,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
              KonsKall
            </a>
         </p>
+      </div>
       </div>
     </div>
   );

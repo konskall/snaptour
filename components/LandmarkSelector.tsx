@@ -21,7 +21,8 @@ export const LandmarkSelector: React.FC<LandmarkSelectorProps> = ({ identificati
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full p-6 pt-20 animate-fade-in">
+    <div className="w-full h-full overflow-y-auto custom-scrollbar animate-fade-in">
+      <div className="flex flex-col items-center justify-center min-h-full px-6 pt-header pb-safe">
       <div className="max-w-md w-full bg-slate-800/80 backdrop-blur-lg border border-slate-700 rounded-3xl p-8 shadow-2xl">
         <div className="text-center mb-6">
           <div className="bg-amber-500/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-amber-400">
@@ -56,6 +57,7 @@ export const LandmarkSelector: React.FC<LandmarkSelectorProps> = ({ identificati
             {t.noneOfThese}
           </button>
         </div>
+      </div>
       </div>
     </div>
   );
