@@ -140,7 +140,7 @@ export async function getLandmarkDetails(landmarkName: string, language: string)
   });
 }
 
-// 3. Generate speech using gemini-2.5-flash-preview-tts (TTS)
+// 3. Generate speech using gemini-3.1-flash-tts-preview (TTS)
 export async function generateNarrationAudio(text: string): Promise<AudioBuffer | null> {
   // Truncate text to 500 characters to avoid API Quota/Timeout limits on the preview model
   const safeText = text.length > 500 ? text.substring(0, 500) + "..." : text;
@@ -151,7 +151,7 @@ export async function generateNarrationAudio(text: string): Promise<AudioBuffer 
       const ai = await getAI();
       const { Modality } = await loadSdk();
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
+        model: "gemini-3.1-flash-tts-preview",
         contents: [{ parts: [{ text: safeText }] }],
         config: {
           responseModalities: [Modality.AUDIO],
