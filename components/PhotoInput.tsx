@@ -98,7 +98,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
 
         </div>
         
-        <div className="mt-8 pt-6 border-t border-slate-700/50 flex items-center justify-center gap-2 text-xs text-slate-400">
+        <div className="mt-8 pt-6 border-t border-white/15 flex items-center justify-center gap-2 text-xs text-slate-400">
           <ImageIcon size={14} />
           <span>{t.supports}</span>
         </div>
