@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Play, Pause, ExternalLink, MapPin, Sparkles, Loader2, Share2, Check, MessageCircle, Map as MapIcon, Compass, ChevronDown, ChevronUp, Volume2 } from 'lucide-react';
+import { Pause, ExternalLink, MapPin, Sparkles, Loader2, Share2, Check, MessageCircle, Map as MapIcon, Compass, ChevronDown, ChevronUp, Volume2 } from 'lucide-react';
 import { AnalysisResult, Translation, NearbyPlace } from '../types';
 import { getNearbyPlaces } from '../services/geminiService';
 
@@ -16,6 +16,9 @@ interface TourCardProps {
 
 export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onGenerateAudio, t, isAudioLoading = false, langCode = 'en', langName }) => {
   const [isPlaying, setIsPlaying] = useState(false);
+  // Which audio engine is active: the instant browser voice ('native', the default)
+  // or the slower premium Gemini voice ('ai', opt-in via the HD button).
+  const [activeEngine, setActiveEngine] = useState<'native' | 'ai' | null>(null);
   const [justShared, setJustShared] = useState(false);
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
@@ -228,38 +231,46 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
 
   // --- CONTROLLER ---
 
-  const handleAudioClick = async () => {
+  // PRIMARY control: the instant browser (native) voice — no network, no quota,
+  // starts speaking immediately.
+  const handleNativePlay = () => {
+    // If the premium voice is currently playing, stop it first.
+    if (activeEngine === 'ai') {
+      stopAiAudio();
+      pauseTimeRef.current = 0;
+      setIsPlaying(false);
+    }
+    if (isPlaying && activeEngine === 'native') {
+      pauseNative();
+    } else {
+      setActiveEngine('native');
+      speakNative();
+    }
+  };
+
+  // SECONDARY control: the premium Gemini "HD" voice (slower + limited daily quota).
+  // Generates on first use, then plays/pauses the cached buffer.
+  const handleAiPlay = () => {
     if (isAudioLoading) return;
+    // Stop the native voice if it's speaking.
+    window.speechSynthesis.cancel();
+    utteranceRef.current = null;
+    if (activeEngine === 'native') setIsPlaying(false);
+    // iOS: unlock the AudioContext inside the user gesture before any async wait.
+    unlockAudioContext();
 
-    // CRITICAL FIX FOR IOS:
-    // We must "unlock" the AudioContext immediately inside the click handler.
-    // Even if we are going to wait for the API, the context must be resumed NOW.
-    if (!result.nativeTTSFallback) {
-        unlockAudioContext();
-    }
-
-    // Handle Native TTS logic
-    if (result.nativeTTSFallback) {
-        if (isPlaying) {
-            pauseNative();
-        } else {
-            speakNative();
-        }
-        return;
-    }
-
-    // Handle AI Audio logic
     if (result.audioBuffer) {
-        if (isPlaying) {
-            pauseAudio();
-        } else {
-            playAudio();
-        }
-        return;
+      if (isPlaying && activeEngine === 'ai') {
+        pauseAudio();
+      } else {
+        setActiveEngine('ai');
+        playAudio();
+      }
+    } else {
+      // No buffer yet → generate; the auto-play effect plays it once ready.
+      setActiveEngine('ai');
+      onGenerateAudio();
     }
-
-    // Generate if nothing exists
-    onGenerateAudio();
   };
 
   // AUTO-PLAY LOGIC
@@ -269,10 +280,11 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
     // AI Audio Auto-play
     // We strictly check lock and references to avoid double-play
     if (result.audioBuffer && !isPlaying && !sourceNodeRef.current && !isAudioOpInProgress.current) {
-       // NOTE: Auto-play might fail on iOS if the "unlock" didn't work, 
-       // but handleAudioClick has already pre-warmed the context, so it should succeed.
+       // NOTE: Auto-play might fail on iOS if the "unlock" didn't work,
+       // but handleAiPlay has already pre-warmed the context, so it should succeed.
+       setActiveEngine('ai');
        playAudio();
-    } 
+    }
   }, [result.audioBuffer, isAudioLoading]);
 
   // Clean up on unmount or when result changes
@@ -291,6 +303,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   // When result changes (new scan), stop everything and reset
   useEffect(() => {
       setIsPlaying(false);
+      setActiveEngine(null);
       pauseTimeRef.current = 0;
       stopAiAudio();
       window.speechSynthesis.cancel();
@@ -348,7 +361,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
             </div>
             
             {/* Audio & Chat Controls */}
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3 items-center">
               <button
                 onClick={onChat}
                 className="w-12 h-12 rounded-full bg-slate-700/80 hover:bg-slate-600 text-indigo-300 flex items-center justify-center border border-slate-600 transition-all hover:scale-105"
@@ -358,32 +371,38 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                 <MessageCircle size={20} />
               </button>
 
-              <div className="flex-shrink-0 w-12 h-12">
-                {isAudioLoading ? (
-                   <div className="w-12 h-12 rounded-full bg-indigo-600/50 border border-indigo-500/50 flex items-center justify-center">
-                     <Loader2 size={20} className="text-indigo-200 animate-spin" />
-                   </div>
-                ) : (
-                  <button
-                    onClick={handleAudioClick}
-                    aria-label={isPlaying ? 'Pause' : 'Play'}
-                    aria-pressed={isPlaying}
-                    className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 ${
-                        result.nativeTTSFallback 
-                            ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-500/30' 
-                            : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/30'
-                    }`}
-                  >
-                    {result.nativeTTSFallback ? (
-                        isPlaying ? <Pause size={20} fill="currentColor" /> : <Volume2 size={20} className="ml-0.5" />
-                    ) : result.audioBuffer ? (
-                        isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-1" />
-                    ) : (
-                        <Play size={20} fill="currentColor" className="ml-1 opacity-70" />
-                    )}
-                  </button>
-                )}
-              </div>
+              {/* PRIMARY: instant browser (native) voice */}
+              <button
+                onClick={handleNativePlay}
+                aria-label={isPlaying && activeEngine === 'native' ? 'Pause' : 'Listen'}
+                aria-pressed={isPlaying && activeEngine === 'native'}
+                className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/30"
+              >
+                {isPlaying && activeEngine === 'native'
+                  ? <Pause size={20} fill="currentColor" />
+                  : <Volume2 size={20} className="ml-0.5" />}
+              </button>
+
+              {/* SECONDARY: premium Gemini HD voice (opt-in, limited quota) */}
+              <button
+                onClick={handleAiPlay}
+                disabled={isAudioLoading}
+                aria-label={isAudioLoading ? 'Loading HD voice' : (isPlaying && activeEngine === 'ai' ? 'Pause HD voice' : 'HD voice')}
+                aria-pressed={isPlaying && activeEngine === 'ai'}
+                title="HD voice (AI)"
+                className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center border transition-all hover:scale-105 relative disabled:cursor-default ${
+                  activeEngine === 'ai'
+                    ? 'bg-purple-600 hover:bg-purple-500 text-white border-purple-400 shadow-lg shadow-purple-500/30'
+                    : 'bg-slate-700/80 hover:bg-slate-600 text-purple-300 border-slate-600'
+                }`}
+              >
+                {isAudioLoading
+                  ? <Loader2 size={18} className="animate-spin" />
+                  : (isPlaying && activeEngine === 'ai'
+                      ? <Pause size={18} fill="currentColor" />
+                      : <Sparkles size={18} />)}
+                <span className="absolute -bottom-0.5 -right-0.5 text-[8px] font-bold bg-slate-900 text-slate-200 rounded px-0.5 leading-tight border border-slate-700">HD</span>
+              </button>
             </div>
           </div>
         </div>
