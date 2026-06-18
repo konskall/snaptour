@@ -165,6 +165,8 @@ export interface Translation {
   voiceLabel: string;
   speedLabel: string;
   voiceDefault: string;
+  listen: string;
+  pause: string;
   // Visited map
   mapMenu: string;
   mapTitle: string;

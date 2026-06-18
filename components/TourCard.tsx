@@ -419,28 +419,31 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
           {/* Title — own full-width row so long names wrap minimally. */}
           <h2 id="tour-title" className="text-xl sm:text-3xl font-bold text-white leading-tight break-words">{result.landmarkName}</h2>
 
-          {/* Audio & Chat controls — own right-aligned row, so they never squeeze the
-              caption/title on narrow screens. */}
-          <div className="flex gap-2 sm:gap-3 items-center justify-end mt-3">
+          {/* Audio & Chat controls — a primary full-width "Listen" action (the instant
+              native voice) plus secondary icon buttons, so the row fills the width with
+              no wasted space on small screens. */}
+          <div className="flex items-center gap-2 mt-3">
+              {/* PRIMARY: instant browser (native) voice — fills remaining width */}
+              <button
+                onClick={handleNativePlay}
+                aria-label={isPlaying && activeEngine === 'native' ? t.pause : t.listen}
+                aria-pressed={isPlaying && activeEngine === 'native'}
+                className="flex-1 min-w-0 h-12 rounded-full flex items-center justify-center gap-2 font-semibold shadow-lg transition-all hover:scale-[1.02] bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/30"
+              >
+                {isPlaying && activeEngine === 'native'
+                  ? <Pause size={20} fill="currentColor" className="shrink-0" />
+                  : <Volume2 size={20} className="shrink-0" />}
+                <span className="truncate">{isPlaying && activeEngine === 'native' ? t.pause : t.listen}</span>
+              </button>
+
+              {/* Ask the guide */}
               <button
                 onClick={onChat}
-                className="w-12 h-12 rounded-full bg-slate-700/80 hover:bg-slate-600 text-indigo-300 flex items-center justify-center border border-slate-600 transition-all hover:scale-105"
+                className="flex-shrink-0 w-12 h-12 rounded-full bg-slate-700/80 hover:bg-slate-600 text-indigo-300 flex items-center justify-center border border-slate-600 transition-all hover:scale-105"
                 title={t.askGuide}
                 aria-label={t.askGuide}
               >
                 <MessageCircle size={20} />
-              </button>
-
-              {/* PRIMARY: instant browser (native) voice */}
-              <button
-                onClick={handleNativePlay}
-                aria-label={isPlaying && activeEngine === 'native' ? 'Pause' : 'Listen'}
-                aria-pressed={isPlaying && activeEngine === 'native'}
-                className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/30"
-              >
-                {isPlaying && activeEngine === 'native'
-                  ? <Pause size={20} fill="currentColor" />
-                  : <Volume2 size={20} className="ml-0.5" />}
               </button>
 
               {/* SECONDARY: premium Gemini HD voice (opt-in, limited quota) */}

@@ -98,7 +98,9 @@ export const translations: Record<string, Translation> = {
     addFavorite: "Add to favorites",
     removeFavorite: "Remove from favorites",
     noResults: "No matching landmarks.",
-    filterAll: "All"
+    filterAll: "All",
+    listen: "Listen",
+    pause: "Pause"
   },
   es: {
     startTitle: "Descubre el Mundo",
@@ -187,7 +189,9 @@ export const translations: Record<string, Translation> = {
     addFavorite: "Añadir a favoritos",
     removeFavorite: "Quitar de favoritos",
     noResults: "No hay lugares que coincidan.",
-    filterAll: "Todos"
+    filterAll: "Todos",
+    listen: "Escuchar",
+    pause: "Pausa"
   },
   fr: {
     startTitle: "Découvrez le Monde",
@@ -276,7 +280,9 @@ export const translations: Record<string, Translation> = {
     addFavorite: "Ajouter aux favoris",
     removeFavorite: "Retirer des favoris",
     noResults: "Aucun lieu correspondant.",
-    filterAll: "Tous"
+    filterAll: "Tous",
+    listen: "Écouter",
+    pause: "Pause"
   },
   de: {
     startTitle: "Entdecke die Welt",
@@ -365,7 +371,9 @@ export const translations: Record<string, Translation> = {
     addFavorite: "Zu Favoriten hinzufügen",
     removeFavorite: "Aus Favoriten entfernen",
     noResults: "Keine passenden Orte.",
-    filterAll: "Alle"
+    filterAll: "Alle",
+    listen: "Anhören",
+    pause: "Pause"
   },
   zh: {
     startTitle: "探索世界",
@@ -454,7 +462,9 @@ export const translations: Record<string, Translation> = {
     addFavorite: "加入收藏",
     removeFavorite: "取消收藏",
     noResults: "没有匹配的地标。",
-    filterAll: "全部"
+    filterAll: "全部",
+    listen: "收听",
+    pause: "暂停"
   },
   hi: {
     startTitle: "दुनिया की खोज करें",
@@ -543,7 +553,9 @@ export const translations: Record<string, Translation> = {
     addFavorite: "पसंदीदा में जोड़ें",
     removeFavorite: "पसंदीदा से हटाएं",
     noResults: "कोई मेल खाता स्थल नहीं।",
-    filterAll: "सभी"
+    filterAll: "सभी",
+    listen: "सुनें",
+    pause: "रोकें"
   },
   el: {
     startTitle: "Ανακαλύψτε τον Κόσμο",
@@ -632,6 +644,8 @@ export const translations: Record<string, Translation> = {
     addFavorite: "Προσθήκη στα αγαπημένα",
     removeFavorite: "Αφαίρεση από τα αγαπημένα",
     noResults: "Δεν βρέθηκαν αξιοθέατα.",
-    filterAll: "Όλα"
+    filterAll: "Όλα",
+    listen: "Άκου",
+    pause: "Παύση"
   }
 };
