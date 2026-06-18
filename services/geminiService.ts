@@ -149,7 +149,11 @@ export async function getLandmarkDetails(landmarkName: string, language: string)
       const ai = await getAI();
       const response = await generateContentWithGroundingFallback(ai, {
         model: GROUNDED_MODEL,
-        contents: `Tell me the history and 3 interesting hidden facts about ${landmarkName} in ${language}. Keep the tone engaging, like a passionate tour guide. Limit to 150 words.`,
+        contents: `Write a concise, factual overview of ${landmarkName} in ${language}: what it is, its key history, and 2-3 genuinely interesting facts, as one or two short flowing paragraphs.
+Tone: natural, human and knowledgeable — informative but understated. NOT theatrical.
+Do NOT address the reader (no "dear friends"), no greetings, no exclamations, no filler like "stand here before the grandeur" or "a timeless masterpiece". Start directly with the substance.
+Plain text only: no markdown, no asterisks, no headings, no bullet or numbered lists.
+Keep it tight: about 90-110 words.`,
         config: {
           tools: [{ googleSearch: {} }],
         },
@@ -168,8 +172,10 @@ export async function getLandmarkDetails(landmarkName: string, language: string)
 
 // 3. Generate speech using gemini-2.5-flash-preview-tts (TTS)
 export async function generateNarrationAudio(text: string): Promise<AudioBuffer | null> {
-  // Truncate text to 500 characters to avoid API Quota/Timeout limits on the preview model
-  const safeText = text.length > 500 ? text.substring(0, 500) + "..." : text;
+  // Cap length as a safety net against runaway generations. The details text is now
+  // concise (~90-110 words), so a 1500-char limit comfortably covers the WHOLE text
+  // in every language — the audio no longer cuts off mid-way (the old 500 cap did).
+  const safeText = text.length > 1500 ? text.substring(0, 1500) + "..." : text;
 
   // Wrap in retryOperation to handle instability in the preview model
   return retryOperation(async () => {
@@ -233,13 +239,14 @@ export async function getChatResponse(landmarkName: string, history: ChatMessage
   const context = history.map(msg => `${msg.sender === 'user' ? 'User' : 'Guide'}: ${msg.text}`).join('\n');
 
   const prompt = `
-      You are an expert tour guide at ${landmarkName}.
-      Context of conversation:
+      You are a knowledgeable local guide at ${landmarkName}. Answer the visitor's question directly and helpfully in ${language}.
+      Tone: natural and human, like a real person talking — NOT theatrical. No flowery openings, no exclamations, no "dear friends" or "welcome, fellow adventurers". Get straight to the point.
+      Keep it short (under 45 words). Plain text, no markdown. If asked about prices or opening hours, give a useful estimate based on typical values.
+
+      Conversation so far:
       ${context}
 
-      User asks: ${question}
-
-      Answer in ${language}. Keep it concise (under 50 words), friendly, and helpful. If asked about prices or opening hours, use your knowledge base or estimate based on typical values for such places.
+      Visitor: ${question}
     `;
 
   // Let errors propagate; the caller (ChatView) shows a localized t.chatError.
