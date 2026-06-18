@@ -358,22 +358,19 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
         
         {/* Header Image/Title Area */}
         <div className="p-6 pb-2 shrink-0">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-indigo-400 mb-1">
-                <MapPin size={16} />
-                <span className="text-xs font-bold tracking-wider">{t.landmarkLabel}</span>
-                {locatedByGps && (
-                  <span
-                    title="Identified using your location"
-                    className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-full px-2 py-0.5"
-                  >
-                    <LocateFixed size={11} />
-                    GPS
-                  </span>
-                )}
-              </div>
-              <h2 id="tour-title" className="text-2xl sm:text-3xl font-bold text-white leading-tight break-words">{result.landmarkName}</h2>
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-indigo-400 min-w-0">
+              <MapPin size={16} />
+              <span className="text-xs font-bold tracking-wider">{t.landmarkLabel}</span>
+              {locatedByGps && (
+                <span
+                  title="Identified using your location"
+                  className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-full px-2 py-0.5"
+                >
+                  <LocateFixed size={11} />
+                  GPS
+                </span>
+              )}
             </div>
 
             {/* Audio & Chat Controls */}
@@ -421,6 +418,9 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
               </button>
             </div>
           </div>
+          {/* Title on its own full-width row so long names wrap minimally instead of
+              squeezing into a narrow column beside the action buttons. */}
+          <h2 id="tour-title" className="text-xl sm:text-3xl font-bold text-white leading-tight break-words">{result.landmarkName}</h2>
         </div>
 
         {/* Scrollable Content */}
