@@ -65,7 +65,7 @@ export const translations: Record<string, Translation> = {
     signInFailed: "Sign-in failed. Please try again.",
     signInNotConfigured: "Sign-in is not configured.",
     chatError: "I'm having trouble reaching the guide right now. Please try again.",
-    shareText: "Check out {name} on Google Maps!"
+    shareText: "Look what I found on SnapTour: {name}!"
   },
   es: {
     startTitle: "Descubre el Mundo",
@@ -121,7 +121,7 @@ export const translations: Record<string, Translation> = {
     signInFailed: "Error al iniciar sesión. Inténtalo de nuevo.",
     signInNotConfigured: "El inicio de sesión no está configurado.",
     chatError: "Tengo problemas para conectar con el guía ahora mismo. Inténtalo de nuevo.",
-    shareText: "¡Mira {name} en Google Maps!"
+    shareText: "¡Mira lo que descubrí en SnapTour: {name}!"
   },
   fr: {
     startTitle: "Découvrez le Monde",
@@ -177,7 +177,7 @@ export const translations: Record<string, Translation> = {
     signInFailed: "Échec de la connexion. Veuillez réessayer.",
     signInNotConfigured: "La connexion n'est pas configurée.",
     chatError: "J'ai du mal à joindre le guide pour le moment. Veuillez réessayer.",
-    shareText: "Découvrez {name} sur Google Maps !"
+    shareText: "Regarde ce que j'ai découvert sur SnapTour : {name} !"
   },
   de: {
     startTitle: "Entdecke die Welt",
@@ -233,7 +233,7 @@ export const translations: Record<string, Translation> = {
     signInFailed: "Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
     signInNotConfigured: "Die Anmeldung ist nicht konfiguriert.",
     chatError: "Ich kann den Guide gerade nicht erreichen. Bitte versuchen Sie es erneut.",
-    shareText: "Schau dir {name} auf Google Maps an!"
+    shareText: "Schau, was ich auf SnapTour entdeckt habe: {name}!"
   },
   zh: {
     startTitle: "探索世界",
@@ -289,7 +289,7 @@ export const translations: Record<string, Translation> = {
     signInFailed: "登录失败，请重试。",
     signInNotConfigured: "登录未配置。",
     chatError: "暂时无法连接向导，请重试。",
-    shareText: "在 Google 地图上查看 {name}！"
+    shareText: "看看我在 SnapTour 上发现了什么：{name}！"
   },
   hi: {
     startTitle: "दुनिया की खोज करें",
@@ -345,7 +345,7 @@ export const translations: Record<string, Translation> = {
     signInFailed: "साइन-इन विफल। कृपया पुनः प्रयास करें।",
     signInNotConfigured: "साइन-इन कॉन्फ़िगर नहीं है।",
     chatError: "अभी गाइड से जुड़ने में समस्या हो रही है। कृपया पुनः प्रयास करें।",
-    shareText: "Google मानचित्र पर {name} देखें!"
+    shareText: "देखो मैंने SnapTour पर क्या खोजा: {name}!"
   },
   el: {
     startTitle: "Ανακαλύψτε τον Κόσμο",
@@ -401,6 +401,6 @@ export const translations: Record<string, Translation> = {
     signInFailed: "Η σύνδεση απέτυχε. Δοκιμάστε ξανά.",
     signInNotConfigured: "Η σύνδεση δεν έχει ρυθμιστεί.",
     chatError: "Δυσκολεύομαι να συνδεθώ με τον ξεναγό αυτή τη στιγμή. Δοκιμάστε ξανά.",
-    shareText: "Δείτε το {name} στους Χάρτες Google!"
+    shareText: "Δες τι ανακάλυψα στο SnapTour: {name}!"
   }
 };

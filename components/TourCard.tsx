@@ -312,21 +312,24 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
 
 
   const handleShare = async () => {
-    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(result.landmarkName)}`;
-    
+    // Share the SnapTour app URL (not a Maps link) so the rich link preview shows
+    // the SnapTour branding/icon from the site's Open Graph tags (og:image).
+    const shareUrl = `${window.location.origin}${window.location.pathname}`;
+    const text = t.shareText.replace('{name}', result.landmarkName);
+
     if (navigator.share) {
       try {
         await navigator.share({
           title: result.landmarkName,
-          text: t.shareText.replace('{name}', result.landmarkName),
-          url: mapsUrl,
+          text,
+          url: shareUrl,
         });
       } catch (err) {
         console.log('Error sharing', err);
       }
     } else {
       try {
-        await navigator.clipboard.writeText(mapsUrl);
+        await navigator.clipboard.writeText(`${text} ${shareUrl}`);
         setJustShared(true);
         setTimeout(() => setJustShared(false), 2000);
       } catch (err) {
