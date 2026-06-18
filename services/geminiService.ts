@@ -259,7 +259,7 @@ export async function getNearbyPlaces(landmarkName: string, language: string): P
     const { Type } = await loadSdk();
     const response = await ai.models.generateContent({
       model: "gemini-3.1-flash-lite",
-      contents: `List 3 interesting places to visit near ${landmarkName}. Provide the name and a short description (under 10 words) for each in ${language}.`,
+      contents: `List 5 interesting places to visit near ${landmarkName}. Provide the name and a short description (under 10 words) for each in ${language}.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {

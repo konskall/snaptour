@@ -371,6 +371,22 @@ const App: React.FC = () => {
     }
   };
 
+  // Deep link: a shared SnapTour URL carries ?l=<landmark>. On first load, open that
+  // landmark directly (fetch its details + show the result), then strip the param so a
+  // refresh doesn't re-fetch and normal view-persistence applies.
+  const deepLinkHandled = useRef(false);
+  useEffect(() => {
+    if (deepLinkHandled.current) return;
+    let landmark = '';
+    try { landmark = new URLSearchParams(window.location.search).get('l') || ''; } catch { /* ignore */ }
+    landmark = landmark.trim().slice(0, 120);
+    if (!landmark) return;
+    deepLinkHandled.current = true;
+    try { window.history.replaceState(null, '', window.location.pathname); } catch { /* ignore */ }
+    fetchDetails(landmark);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const resetApp = () => {
     setState(AppState.IDLE);
     setSelectedImage(null);

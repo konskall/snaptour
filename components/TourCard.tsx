@@ -313,8 +313,11 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
 
   const handleShare = async () => {
     // Share the SnapTour app URL (not a Maps link) so the rich link preview shows
-    // the SnapTour branding/icon from the site's Open Graph tags (og:image).
-    const shareUrl = `${window.location.origin}${window.location.pathname}`;
+    // the SnapTour branding/icon from the site's Open Graph tags (og:image). The
+    // ?l= deep link makes the recipient's app open this landmark directly; the query
+    // string is ignored by the static host, so the OG preview is unaffected.
+    const base = `${window.location.origin}${window.location.pathname}`;
+    const shareUrl = `${base}?l=${encodeURIComponent(result.landmarkName)}`;
     const text = t.shareText.replace('{name}', result.landmarkName);
 
     if (navigator.share) {
