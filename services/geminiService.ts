@@ -54,13 +54,14 @@ async function retryOperation<T>(operation: () => Promise<T>, retries = 3, delay
   }
 }
 
-// Grounded calls (identify + details) run on gemini-2.5-flash, which HAS a free-tier
-// Google Search grounding allowance (~1,500 RPD). gemini-3.1-flash-lite has NO free
+// Grounded calls (identify + details) run on gemini-2.5-flash-lite: it shares the 2.5
+// family's free Google Search grounding (~1,500 RPD) AND has a far higher general daily
+// request cap than gemini-2.5-flash (~20/day free), and is faster. gemini-3.1-flash-lite has NO free
 // grounding quota, so grounded 3.1 calls return 429 immediately. If even the 2.5
 // grounding quota is exhausted (429), retry the SAME request WITHOUT the googleSearch
 // tool, so identification/details keep working (model knowledge / vision only, no live
 // web sources) instead of hard-failing the scan.
-const GROUNDED_MODEL = 'gemini-2.5-flash';
+const GROUNDED_MODEL = 'gemini-2.5-flash-lite';
 
 async function generateContentWithGroundingFallback(ai: GoogleGenAI, params: any): Promise<any> {
   try {

@@ -46,6 +46,36 @@ export const createThumbnail = async (base64Image: string): Promise<string> => {
   });
 };
 
+// Downscale an image to a max dimension before sending it to the recognition model.
+// Large phone photos (several MB) upload slowly and the vision model downsamples anyway,
+// so ~1024px keeps full accuracy while cutting upload time. Returns stripped base64 + its
+// mime type. Falls back to the original bytes on any failure.
+export const createScaledImage = async (
+  base64Image: string,
+  maxDim = 1024,
+  quality = 0.85,
+): Promise<{ base64: string; mimeType: string }> => {
+  return new Promise((resolve) => {
+    const origMime = base64Image.match(/^data:([^;]+)/)?.[1] || 'image/jpeg';
+    const orig = () => ({ base64: base64Image.replace(/^data:image\/\w+;base64,/, ''), mimeType: origMime });
+    const img = new Image();
+    img.src = base64Image.startsWith('data:') ? base64Image : `data:image/jpeg;base64,${base64Image}`;
+    img.onload = () => {
+      const longest = Math.max(img.width, img.height);
+      const scale = maxDim / longest;
+      if (!Number.isFinite(scale) || scale >= 1) { resolve(orig()); return; } // already small enough
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(orig()); return; }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve({ base64: canvas.toDataURL('image/jpeg', quality).split(',')[1], mimeType: 'image/jpeg' });
+    };
+    img.onerror = () => resolve(orig());
+  });
+};
+
 // ---- localStorage cache (also the sole store in guest mode) ----
 const cacheKey = (uid: string) => `snaptour_history_${uid}`;
 

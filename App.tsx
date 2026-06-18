@@ -8,7 +8,7 @@ import { SkeletonCard } from './components/SkeletonCard';
 import { ChatView } from './components/ChatView';
 import { identifyLandmarkFromImage, getLandmarkDetails, generateNarrationAudio } from './services/geminiService';
 import { getDeviceLocation, getExifGps } from './services/locationUtils';
-import { saveHistoryItem, getHistory, createThumbnail, clearHistory, deleteHistoryItem, migrateLocalHistory } from './services/storageService';
+import { saveHistoryItem, getHistory, createThumbnail, createScaledImage, clearHistory, deleteHistoryItem, migrateLocalHistory } from './services/storageService';
 import { auth, isFirebaseConfigured } from './services/firebase';
 import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import { AppState, AnalysisResult, LandmarkIdentification, User, HistoryItem } from './types';
@@ -292,13 +292,13 @@ const App: React.FC = () => {
         setState(AppState.ERROR);
         return;
       }
-      const base64Image = base64Data.split(',')[1];
-      const mimeType = file.type;
-      // Use a downscaled thumbnail for the on-screen background/state to avoid
-      // holding a full-res image in React state; the original is sent to processTour.
+      // Downscaled thumbnail for the on-screen background.
       const thumb = await createThumbnail(base64Data);
       setSelectedImage(`data:image/jpeg;base64,${thumb}`);
-      processTour(base64Image, mimeType, base64Data, source, file);
+      // Send a ~1024px version to the model: large phone photos upload slowly and the
+      // vision model downsamples anyway, so this is much faster with no accuracy loss.
+      const scaled = await createScaledImage(base64Data, 1024);
+      processTour(scaled.base64, scaled.mimeType, base64Data, source, file);
     };
     reader.onerror = () => {
       setErrorMsg(t.error);
