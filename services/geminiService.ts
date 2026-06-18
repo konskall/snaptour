@@ -54,13 +54,39 @@ async function retryOperation<T>(operation: () => Promise<T>, retries = 3, delay
   }
 }
 
-// 1. Identify the landmark using gemini-3.1-flash-lite with Google Search Grounding for ACCURACY
+// Grounded calls (identify + details) run on gemini-2.5-flash, which HAS a free-tier
+// Google Search grounding allowance (~1,500 RPD). gemini-3.1-flash-lite has NO free
+// grounding quota, so grounded 3.1 calls return 429 immediately. If even the 2.5
+// grounding quota is exhausted (429), retry the SAME request WITHOUT the googleSearch
+// tool, so identification/details keep working (model knowledge / vision only, no live
+// web sources) instead of hard-failing the scan.
+const GROUNDED_MODEL = 'gemini-2.5-flash';
+
+async function generateContentWithGroundingFallback(ai: GoogleGenAI, params: any): Promise<any> {
+  try {
+    return await ai.models.generateContent(params);
+  } catch (error: any) {
+    const is429 =
+      error?.status === 429 ||
+      error?.message?.includes('429') ||
+      error?.message?.includes('RESOURCE_EXHAUSTED');
+    if (is429 && Array.isArray(params?.config?.tools)) {
+      console.warn('Search grounding quota exhausted (429); retrying without grounding.');
+      const configWithoutTools = { ...params.config };
+      delete configWithoutTools.tools;
+      return await ai.models.generateContent({ ...params, config: configWithoutTools });
+    }
+    throw error;
+  }
+}
+
+// 1. Identify the landmark using gemini-2.5-flash with Google Search Grounding for ACCURACY
 export async function identifyLandmarkFromImage(base64Image: string, mimeType: string, language: string): Promise<LandmarkIdentification> {
   return retryOperation(async () => {
     try {
       const ai = await getAI();
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-lite',
+      const response = await generateContentWithGroundingFallback(ai, {
+        model: GROUNDED_MODEL,
         contents: {
           parts: [
             {
@@ -116,13 +142,13 @@ export async function identifyLandmarkFromImage(base64Image: string, mimeType: s
   });
 }
 
-// 2. Get detailed history using gemini-3.1-flash-lite with Google Search (Search Grounding)
+// 2. Get detailed history using gemini-2.5-flash with Google Search (Search Grounding)
 export async function getLandmarkDetails(landmarkName: string, language: string): Promise<{ text: string; sources: GroundingChunk[] }> {
   return retryOperation(async () => {
     try {
       const ai = await getAI();
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
+      const response = await generateContentWithGroundingFallback(ai, {
+        model: GROUNDED_MODEL,
         contents: `Tell me the history and 3 interesting hidden facts about ${landmarkName} in ${language}. Keep the tone engaging, like a passionate tour guide. Limit to 150 words.`,
         config: {
           tools: [{ googleSearch: {} }],
