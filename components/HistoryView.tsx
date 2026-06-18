@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { HistoryItem, Translation } from '../types';
-import { Calendar, MapPin, Home, Trash2, CheckCircle, XCircle, Image as ImageIcon } from 'lucide-react';
+import { Calendar, MapPin, Home, Trash2, CheckCircle, XCircle, Image as ImageIcon, Share2, Check } from 'lucide-react';
 
 interface HistoryViewProps {
   items: HistoryItem[];
@@ -35,7 +35,24 @@ const HistoryThumbnail = ({ thumbnail, alt }: { thumbnail: string, alt: string }
 
 export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClear, onSelect, onDelete, t }) => {
   const [showConfirm, setShowConfirm] = useState(false);
+  const [sharedId, setSharedId] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+
+  // Share a saved landmark — like the result view: the SnapTour app link (branded
+  // preview) with a ?l= deep link that opens this landmark on the recipient's side.
+  const handleShare = async (item: HistoryItem) => {
+    const shareUrl = `${window.location.origin}${window.location.pathname}?l=${encodeURIComponent(item.landmarkName)}`;
+    const text = t.shareText.replace('{name}', item.landmarkName);
+    if (navigator.share) {
+      try { await navigator.share({ title: item.landmarkName, text, url: shareUrl }); } catch { /* cancelled */ }
+    } else {
+      try {
+        await navigator.clipboard.writeText(`${text} ${shareUrl}`);
+        setSharedId(item.id);
+        setTimeout(() => setSharedId(null), 2000);
+      } catch { /* clipboard unavailable */ }
+    }
+  };
 
   useEffect(() => {
     headingRef.current?.focus();
@@ -117,7 +134,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
                     <h3 className="text-xl font-bold text-white truncate w-full group-hover:text-indigo-400 transition-colors">{item.landmarkName}</h3>
                     <div className="flex-shrink-0 flex items-center text-xs text-slate-400 bg-slate-900/80 px-2 py-1 rounded-full whitespace-nowrap">
                       <Calendar size={12} className="mr-1" />
-                      {new Date(item.timestamp).toLocaleDateString()}
+                      {new Date(item.timestamp).toLocaleDateString()}, {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
                   <p className="text-slate-400 text-sm line-clamp-3 sm:line-clamp-4 leading-relaxed">
@@ -126,16 +143,27 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
                 </div>
               </button>
 
-              {/* Per-item delete (sits above the select button, top-right of the thumbnail) */}
-              <button
-                type="button"
-                onClick={() => onDelete(item.id)}
-                aria-label={`${t.deleteItem}: ${item.landmarkName}`}
-                title={t.deleteItem}
-                className="absolute top-2 right-2 sm:left-2 sm:right-auto z-10 p-2 rounded-full bg-slate-900/80 backdrop-blur-sm text-slate-200 hover:bg-red-600 hover:text-white border border-slate-700/60 shadow-lg transition-colors"
-              >
-                <Trash2 size={16} />
-              </button>
+              {/* Per-item actions (share + delete), over the thumbnail corner */}
+              <div className="absolute top-2 right-2 sm:left-2 sm:right-auto z-10 flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleShare(item)}
+                  aria-label={`${t.share}: ${item.landmarkName}`}
+                  title={t.share}
+                  className="p-2 rounded-full bg-slate-900/80 backdrop-blur-sm text-slate-200 hover:bg-indigo-600 hover:text-white border border-slate-700/60 shadow-lg transition-colors"
+                >
+                  {sharedId === item.id ? <Check size={16} className="text-green-400" /> : <Share2 size={16} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(item.id)}
+                  aria-label={`${t.deleteItem}: ${item.landmarkName}`}
+                  title={t.deleteItem}
+                  className="p-2 rounded-full bg-slate-900/80 backdrop-blur-sm text-slate-200 hover:bg-red-600 hover:text-white border border-slate-700/60 shadow-lg transition-colors"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           ))
         )}
