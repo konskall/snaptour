@@ -358,9 +358,9 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
         
         {/* Header Image/Title Area */}
         <div className="p-6 pb-2 shrink-0">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 text-indigo-400 mb-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-indigo-400 mb-1">
                 <MapPin size={16} />
                 <span className="text-xs font-bold tracking-wider">{t.landmarkLabel}</span>
                 {locatedByGps && (
@@ -373,11 +373,11 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                   </span>
                 )}
               </div>
-              <h2 id="tour-title" className="text-2xl sm:text-3xl font-bold text-white leading-tight">{result.landmarkName}</h2>
+              <h2 id="tour-title" className="text-2xl sm:text-3xl font-bold text-white leading-tight break-words">{result.landmarkName}</h2>
             </div>
-            
+
             {/* Audio & Chat Controls */}
-            <div className="flex gap-2 sm:gap-3 items-center">
+            <div className="flex gap-2 sm:gap-3 items-center shrink-0">
               <button
                 onClick={onChat}
                 className="w-12 h-12 rounded-full bg-slate-700/80 hover:bg-slate-600 text-indigo-300 flex items-center justify-center border border-slate-600 transition-all hover:scale-105"

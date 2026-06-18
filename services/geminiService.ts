@@ -98,7 +98,7 @@ export async function identifyLandmarkFromImage(base64Image: string, mimeType: s
             },
             {
               text: `Identify this landmark precisely using Google Search to verify visual features.
-              ${coords ? `The photo was taken near GPS coordinates ${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)} — strongly prefer landmarks at or very near this position and use it to disambiguate similar-looking places.` : ''}
+              ${coords ? `Context: the photo was taken near GPS coordinates ${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}. Use this ONLY to disambiguate between landmarks that genuinely match what is visible in the image. Do NOT name a place merely because it is near these coordinates: if the image itself does not clearly show a landmark / monument / notable place (e.g. an everyday object, a TV or screen, a person, food, a plain interior), it is "not a landmark" regardless of the location.` : ''}
               Look for specific architectural details, signage, or unique characteristics to ensure accuracy.
               
               Return a STRICT JSON object (do not use Markdown code blocks) with the following structure:
