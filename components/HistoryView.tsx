@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { HistoryItem, Translation } from '../types';
-import { Calendar, MapPin, Home, Trash2, CheckCircle, XCircle, Image as ImageIcon, Share2, Check, Search, Star } from 'lucide-react';
+import { HistoryItem, LandmarkMeta, Translation } from '../types';
+import { Calendar, MapPin, Home, Trash2, CheckCircle, XCircle, Share2, Check, Search, Star, Landmark } from 'lucide-react';
+import { gradientFor } from '../services/placeholderUtils';
 
 interface HistoryViewProps {
   items: HistoryItem[];
@@ -12,20 +13,38 @@ interface HistoryViewProps {
   t: Translation;
 }
 
-const HistoryThumbnail = ({ thumbnail, alt }: { thumbnail: string, alt: string }) => {
+// Designed fallback for entries with no photo (e.g. "Near me now" picks whose
+// Wikimedia lookup also missed): a stable gradient + flag + landmark icon + name,
+// so the card looks intentional rather than broken.
+const HistoryPlaceholder = ({ info, alt }: { info?: LandmarkMeta; alt: string }) => (
+  <div className={`absolute inset-0 bg-gradient-to-br ${gradientFor(info?.countryCode || alt)} flex flex-col items-center justify-center p-4 text-white overflow-hidden`}>
+    {info?.countryCode && (
+      <img
+        src={`https://cdn.jsdelivr.net/gh/HatScripts/circle-flags/flags/${info.countryCode}.svg`}
+        alt="" aria-hidden="true"
+        className="absolute -right-7 -bottom-7 w-32 h-32 opacity-20"
+        loading="lazy"
+      />
+    )}
+    <Landmark size={38} className="opacity-90 mb-2 drop-shadow" />
+    <p className="relative text-center text-sm font-semibold leading-tight line-clamp-2 drop-shadow">{alt}</p>
+  </div>
+);
+
+const HistoryThumbnail = ({ thumbnail, alt, info }: { thumbnail: string, alt: string, info?: LandmarkMeta }) => {
   const [error, setError] = useState(false);
 
   if (error || !thumbnail) {
-    return (
-      <div className="absolute inset-0 flex items-center justify-center bg-slate-800 text-slate-600">
-        <ImageIcon size={32} opacity={0.5} />
-      </div>
-    );
+    return <HistoryPlaceholder info={info} alt={alt} />;
   }
+
+  // Thumbnails are either a stored base64 string (user photos) or an absolute URL
+  // (a fetched Wikimedia image for photo-less items).
+  const src = thumbnail.includes('://') ? thumbnail : `data:image/jpeg;base64,${thumbnail}`;
 
   return (
     <img
-      src={`data:image/jpeg;base64,${thumbnail}`}
+      src={src}
       alt={alt}
       className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
       loading="lazy"
@@ -216,7 +235,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
               >
                 {/* Image Container */}
                 <div className="w-full h-48 sm:w-48 sm:h-48 flex-shrink-0 bg-slate-900 relative overflow-hidden">
-                  <HistoryThumbnail thumbnail={item.thumbnail} alt={item.landmarkName} />
+                  <HistoryThumbnail thumbnail={item.thumbnail} alt={item.landmarkName} info={item.info} />
                 </div>
                 <div className="p-4 flex flex-col justify-center flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2 mb-2">

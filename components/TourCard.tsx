@@ -483,9 +483,10 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
               </button>
           </div>
 
-          {/* Voice & speed panel — collapsible, applies to the standard (native) voice */}
+          {/* Voice & speed panel — collapsible, applies to the standard (native) voice.
+              mt-3 keeps clear separation from the controls row (it was flush before). */}
           {showVoiceMenu && (
-            <div className="mb-2 rounded-xl border border-slate-700 bg-slate-800/60 p-3 space-y-3 animate-fade-in">
+            <div className="mt-3 mb-2 rounded-xl border border-slate-700 bg-slate-800/80 p-3 space-y-3 animate-fade-in shadow-lg">
               <div className="flex items-center gap-2 text-slate-300">
                 <SlidersHorizontal size={13} className="text-indigo-400" />
                 <span className="text-xs font-semibold tracking-wide">{t.voiceLabel}</span>

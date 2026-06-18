@@ -11,6 +11,7 @@ import { PassportView } from './components/PassportView';
 import { identifyLandmarkFromImage, getLandmarkDetails, generateNarrationAudio, getLandmarkInfo, getNearbyLandmarks } from './services/geminiService';
 import { getDeviceLocation, getExifGps } from './services/locationUtils';
 import { saveHistoryItem, getHistory, createThumbnail, createScaledImage, clearHistory, deleteHistoryItem, migrateLocalHistory, setFavorite } from './services/storageService';
+import { fetchLandmarkImage } from './services/wikimediaService';
 import { auth, isFirebaseConfigured } from './services/firebase';
 import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import { AppState, AnalysisResult, LandmarkIdentification, LandmarkMeta, User, HistoryItem, NearbyPlace } from './types';
@@ -313,7 +314,13 @@ const App: React.FC = () => {
       nativeTTSFallback: false,
       meta: item.info, // restore the Useful info card from saved metadata
     });
-    setSelectedImage(`data:image/jpeg;base64,${item.thumbnail}`);
+    // Thumbnails are base64 (user photos) or an absolute URL (fetched Wikimedia image);
+    // empty → no background (the card sits on the dark surface).
+    setSelectedImage(
+      item.thumbnail
+        ? (item.thumbnail.includes('://') ? item.thumbnail : `data:image/jpeg;base64,${item.thumbnail}`)
+        : null,
+    );
     setState(AppState.SHOWING_RESULT);
     setScanUsedLocation(false); // history items have no live-location badge
 
@@ -392,13 +399,21 @@ const App: React.FC = () => {
       // Reset Audio State - user must click play to generate
       setIsGeneratingAudio(false);
 
+      // For photo-less entries (Near me now / deep link) fetch a real representative
+      // image so the result + history aren't bare. Runs in parallel with the grounded
+      // calls, so it adds no latency (details is the long pole) and is best-effort.
+      const needsImage = !(imageOverride || selectedImage);
+
       // Grounded narrative + structured "useful info" in parallel. Info is a non-grounded
       // call on a separate quota bucket and is best-effort — it never blocks the result.
-      const [{ text: detailedInfo, sources }, info] = await Promise.all([
+      const [{ text: detailedInfo, sources }, info, wikiImage] = await Promise.all([
         getLandmarkDetails(landmarkName, currentLangName),
         getLandmarkInfo(landmarkName, currentLangName).catch(() => null),
+        needsImage ? fetchLandmarkImage(landmarkName).catch(() => null) : Promise.resolve(null),
       ]);
       const meta: LandmarkMeta | undefined = info || undefined;
+      // Use the fetched image as the result-view background when we had no photo.
+      if (wikiImage) setSelectedImage(wikiImage);
       setResult({
         landmarkName,
         detailedInfo,
@@ -413,7 +428,9 @@ const App: React.FC = () => {
       // (e.g. a "Near me now" pick, which has no photo). Deep links don't save.
       const imageToSave = imageOverride || selectedImage;
       if (user && (imageToSave || opts?.save)) {
-        const thumbnail = imageToSave ? await createThumbnail(imageToSave) : '';
+        // User photos → downscaled base64 thumbnail; photo-less items → the Wikimedia
+        // image URL (or '' → the designed placeholder in History).
+        const thumbnail = imageToSave ? await createThumbnail(imageToSave) : (wikiImage || '');
         // Best coordinates for the visited map: real scan GPS if we had it, else the
         // model's estimate from the metadata.
         const lat = scanCoords?.lat ?? meta?.lat ?? undefined;
