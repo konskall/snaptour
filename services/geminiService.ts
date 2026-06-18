@@ -151,8 +151,7 @@ export async function getLandmarkDetails(landmarkName: string, language: string)
       const ai = await getAI();
       const response = await generateContentWithGroundingFallback(ai, {
         model: GROUNDED_MODEL,
-        contents: `First, use Google Search to verify the facts about ${landmarkName} and ground your answer in real web sources — do this even for well-known places.
-Then write a concise, factual overview of ${landmarkName} in ${language}: what it is, its key history, and 2-3 genuinely interesting facts, as one or two short flowing paragraphs.
+        contents: `Write a concise, factual overview of ${landmarkName} in ${language}: what it is, its key history, and 2-3 genuinely interesting facts, as one or two short flowing paragraphs.
 Tone: natural, human and knowledgeable — informative but understated. NOT theatrical.
 Do NOT address the reader (no "dear friends"), no greetings, no exclamations, no filler like "stand here before the grandeur" or "a timeless masterpiece". Start directly with the substance.
 Plain text only: no markdown, no asterisks, no headings, no bullet or numbered lists.
