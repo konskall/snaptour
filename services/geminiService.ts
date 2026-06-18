@@ -107,7 +107,7 @@ export async function identifyLandmarkFromImage(base64Image: string, mimeType: s
                 "alternatives": ["Alternative Name 1", "Alternative Name 2"]
               }
               
-              If the image is not a landmark, set confidence to 0.
+              If the image is NOT a recognizable landmark / monument / notable place, set "name" to an empty string "", "confidence" to 0, and "alternatives" to []. Otherwise put your single best guess in "name" and 2-4 distinct, plausible real alternatives in "alternatives" so the user can pick the right one from the photo.
               Translate the names to ${language}.`,
             },
           ],

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Pause, ExternalLink, MapPin, Sparkles, Loader2, Share2, Check, MessageCircle, Map as MapIcon, Compass, ChevronDown, ChevronUp, Volume2 } from 'lucide-react';
+import { Pause, ExternalLink, MapPin, Sparkles, Loader2, Share2, Check, MessageCircle, Map as MapIcon, Compass, ChevronDown, ChevronUp, Volume2, LocateFixed } from 'lucide-react';
 import { AnalysisResult, Translation, NearbyPlace } from '../types';
 import { getNearbyPlaces } from '../services/geminiService';
 
@@ -12,9 +12,10 @@ interface TourCardProps {
   isAudioLoading?: boolean;
   langCode?: string;
   langName: string;
+  locatedByGps?: boolean;
 }
 
-export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onGenerateAudio, t, isAudioLoading = false, langCode = 'en', langName }) => {
+export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onGenerateAudio, t, isAudioLoading = false, langCode = 'en', langName, locatedByGps = false }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   // Which audio engine is active: the instant browser voice ('native', the default)
   // or the slower premium Gemini voice ('ai', opt-in via the HD button).
@@ -362,6 +363,15 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
               <div className="flex items-center gap-2 text-indigo-400 mb-1">
                 <MapPin size={16} />
                 <span className="text-xs font-bold tracking-wider">{t.landmarkLabel}</span>
+                {locatedByGps && (
+                  <span
+                    title="Identified using your location"
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-full px-2 py-0.5"
+                  >
+                    <LocateFixed size={11} />
+                    GPS
+                  </span>
+                )}
               </div>
               <h2 id="tour-title" className="text-2xl sm:text-3xl font-bold text-white leading-tight">{result.landmarkName}</h2>
             </div>

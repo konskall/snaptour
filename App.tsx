@@ -44,6 +44,9 @@ const App: React.FC = () => {
   });
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  // Whether the latest scan used a location hint (EXIF / device GPS) — drives a small
+  // badge on the result. Not relevant for history items.
+  const [scanUsedLocation, setScanUsedLocation] = useState(false);
   const [missingCreds, setMissingCreds] = useState<string[]>([]);
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
   
@@ -273,6 +276,7 @@ const App: React.FC = () => {
     });
     setSelectedImage(`data:image/jpeg;base64,${item.thumbnail}`);
     setState(AppState.SHOWING_RESULT);
+    setScanUsedLocation(false); // history items have no live-location badge
 
     // Reset Audio State - user must click play to generate
     setIsGeneratingAudio(false);
@@ -314,10 +318,13 @@ const App: React.FC = () => {
         const exif = file ? await getExifGps(file) : null;
         coords = exif || (source === 'camera' ? await getDeviceLocation() : null) || undefined;
       } catch { coords = undefined; }
+      setScanUsedLocation(!!coords);
       const idResult = await identifyLandmarkFromImage(base64Image, mimeType, currentLangName, coords);
       setIdentificationResult(idResult);
       const CONFIDENCE_THRESHOLD = 0.8;
-      if (idResult.confidence >= CONFIDENCE_THRESHOLD) {
+      // Require a non-empty name too: the model returns an empty name for "not a
+      // landmark", which must never be auto-fetched (it would narrate nonsense).
+      if (idResult.confidence >= CONFIDENCE_THRESHOLD && idResult.name) {
         fetchDetails(idResult.name, fullImageData);
       } else {
         setState(AppState.SELECTING_LANDMARK);
@@ -403,6 +410,7 @@ const App: React.FC = () => {
     setIdentificationResult(null);
     setErrorMsg('');
     setIsGeneratingAudio(false);
+    setScanUsedLocation(false);
   };
 
   const handleLanguageChange = (code: string) => {
@@ -645,6 +653,7 @@ const App: React.FC = () => {
             isAudioLoading={isGeneratingAudio}
             langCode={langCode}
             langName={currentLangName}
+            locatedByGps={scanUsedLocation}
           />
         )}
         

@@ -88,6 +88,8 @@ export interface Translation {
   uncertain: string;
   confidence: string;
   noneOfThese: string;
+  notLandmarkTitle: string;
+  notLandmark: string;
   login: string;
   logout: string;
   history: string;
