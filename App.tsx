@@ -7,6 +7,7 @@ import { ScanningView } from './components/ScanningView';
 import { SkeletonCard } from './components/SkeletonCard';
 import { ChatView } from './components/ChatView';
 import { identifyLandmarkFromImage, getLandmarkDetails, generateNarrationAudio } from './services/geminiService';
+import { getDeviceLocation, getExifGps } from './services/locationUtils';
 import { saveHistoryItem, getHistory, createThumbnail, clearHistory, deleteHistoryItem, migrateLocalHistory } from './services/storageService';
 import { auth, isFirebaseConfigured } from './services/firebase';
 import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
@@ -277,7 +278,7 @@ const App: React.FC = () => {
     setIsGeneratingAudio(false);
   };
 
-  const handleImageSelect = (file: File) => {
+  const handleImageSelect = (file: File, source: 'camera' | 'upload' = 'upload') => {
     const reader = new FileReader();
     reader.onload = async (e) => {
       const base64Data = e.target?.result as string;
@@ -293,7 +294,7 @@ const App: React.FC = () => {
       // holding a full-res image in React state; the original is sent to processTour.
       const thumb = await createThumbnail(base64Data);
       setSelectedImage(`data:image/jpeg;base64,${thumb}`);
-      processTour(base64Image, mimeType, base64Data);
+      processTour(base64Image, mimeType, base64Data, source, file);
     };
     reader.onerror = () => {
       setErrorMsg(t.error);
@@ -302,10 +303,18 @@ const App: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const processTour = async (base64Image: string, mimeType: string, fullImageData: string) => {
+  const processTour = async (base64Image: string, mimeType: string, fullImageData: string, source: 'camera' | 'upload' = 'upload', file?: File) => {
     try {
       setState(AppState.ANALYZING_IMAGE);
-      const idResult = await identifyLandmarkFromImage(base64Image, mimeType, currentLangName);
+      // Location hint to disambiguate the landmark: the photo's own EXIF GPS first
+      // (correct even for old uploads), then the live device location for a camera
+      // capture. Anything missing/denied → image-only, exactly as before.
+      let coords: { lat: number; lng: number } | undefined;
+      try {
+        const exif = file ? await getExifGps(file) : null;
+        coords = exif || (source === 'camera' ? await getDeviceLocation() : null) || undefined;
+      } catch { coords = undefined; }
+      const idResult = await identifyLandmarkFromImage(base64Image, mimeType, currentLangName, coords);
       setIdentificationResult(idResult);
       const CONFIDENCE_THRESHOLD = 0.8;
       if (idResult.confidence >= CONFIDENCE_THRESHOLD) {

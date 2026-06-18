@@ -3,16 +3,16 @@ import { Camera, Upload, Image as ImageIcon } from 'lucide-react';
 import { Translation } from '../types';
 
 interface PhotoInputProps {
-  onImageSelect: (file: File) => void;
+  onImageSelect: (file: File, source: 'camera' | 'upload') => void;
   t: Translation;
 }
 
 export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, source: 'camera' | 'upload') => {
     if (e.target.files && e.target.files[0]) {
-      onImageSelect(e.target.files[0]);
+      onImageSelect(e.target.files[0], source);
     }
   };
 
@@ -66,7 +66,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
               capture="environment"
               id="cameraInput"
               className="hidden"
-              onChange={handleFileChange}
+              onChange={(e) => handleFileChange(e, 'camera')}
             />
             <label 
               htmlFor="cameraInput"
@@ -92,7 +92,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
               accept="image/*"
               className="hidden"
               ref={fileInputRef}
-              onChange={handleFileChange}
+              onChange={(e) => handleFileChange(e, 'upload')}
             />
           </div>
 
