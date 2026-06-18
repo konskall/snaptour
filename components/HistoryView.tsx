@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { HistoryItem, Translation } from '../types';
-import { Calendar, MapPin, Home, Trash2, CheckCircle, XCircle, Image as ImageIcon, Share2, Check } from 'lucide-react';
+import { Calendar, MapPin, Home, Trash2, CheckCircle, XCircle, Image as ImageIcon, Share2, Check, Search, Star } from 'lucide-react';
 
 interface HistoryViewProps {
   items: HistoryItem[];
@@ -8,6 +8,7 @@ interface HistoryViewProps {
   onClear: () => void;
   onSelect: (item: HistoryItem) => void;
   onDelete: (id: string) => void;
+  onToggleFavorite: (item: HistoryItem) => void;
   t: Translation;
 }
 
@@ -23,8 +24,8 @@ const HistoryThumbnail = ({ thumbnail, alt }: { thumbnail: string, alt: string }
   }
 
   return (
-    <img 
-      src={`data:image/jpeg;base64,${thumbnail}`} 
+    <img
+      src={`data:image/jpeg;base64,${thumbnail}`}
       alt={alt}
       className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
       loading="lazy"
@@ -33,10 +34,37 @@ const HistoryThumbnail = ({ thumbnail, alt }: { thumbnail: string, alt: string }
   );
 };
 
-export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClear, onSelect, onDelete, t }) => {
+export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClear, onSelect, onDelete, onToggleFavorite, t }) => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [sharedId, setSharedId] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+
+  // Filters
+  const [search, setSearch] = useState('');
+  const [country, setCountry] = useState('');
+  const [type, setType] = useState('');
+  const [favOnly, setFavOnly] = useState(false);
+
+  // Distinct country / type values present in the saved items (powers the dropdowns).
+  const countries = useMemo(
+    () => Array.from(new Set(items.map(i => (i.info?.country || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [items],
+  );
+  const types = useMemo(
+    () => Array.from(new Set(items.map(i => (i.info?.category || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [items],
+  );
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter(i => {
+      if (favOnly && !i.favorite) return false;
+      if (country && (i.info?.country || '') !== country) return false;
+      if (type && (i.info?.category || '') !== type) return false;
+      if (q && !i.landmarkName.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [items, search, country, type, favOnly]);
 
   // Share a saved landmark — like the result view: the SnapTour app link (branded
   // preview) with a ?l= deep link that opens this landmark on the recipient's side.
@@ -58,13 +86,15 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
     headingRef.current?.focus();
   }, []);
 
+  const hasFilters = items.length > 0;
+
   return (
     <div className="flex flex-col w-full h-full p-6 pt-header animate-fade-in bg-slate-900 overflow-hidden">
 
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
         <h2 ref={headingRef} tabIndex={-1} className="text-3xl font-bold text-white outline-none">{t.historyTitle}</h2>
-        
+
         <div className="flex items-center gap-2 self-end sm:self-auto">
           {items.length > 0 && (
              <div className="relative">
@@ -109,6 +139,60 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
         </div>
       </div>
 
+      {/* Search + filters */}
+      {hasFilters && (
+        <div className="flex flex-col sm:flex-row gap-2 mb-5 shrink-0">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t.searchPlaceholder}
+              aria-label={t.searchPlaceholder}
+              style={{ fontSize: '16px' }}
+              className="w-full bg-slate-800/70 border border-slate-700 rounded-full pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+            />
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setFavOnly(v => !v)}
+              aria-pressed={favOnly}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-semibold border transition-colors ${
+                favOnly
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                  : 'bg-slate-800/70 text-slate-300 border-slate-700 hover:bg-slate-700'
+              }`}
+            >
+              <Star size={15} className={favOnly ? 'fill-amber-300' : ''} />
+              <span>{t.favoritesOnly}</span>
+            </button>
+            {countries.length > 1 && (
+              <select
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                aria-label={t.filterAll}
+                className="bg-slate-800/70 border border-slate-700 rounded-full px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 max-w-[40vw]"
+              >
+                <option value="">{t.filterAll}</option>
+                {countries.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            )}
+            {types.length > 1 && (
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+                aria-label={t.filterAll}
+                className="bg-slate-800/70 border border-slate-700 rounded-full px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 max-w-[40vw]"
+              >
+                <option value="">{t.filterAll}</option>
+                {types.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* List */}
       <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pb-safe">
         {items.length === 0 ? (
@@ -116,8 +200,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
             <MapPin size={48} className="mb-4 opacity-50" />
             <p>{t.noHistory}</p>
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="h-64 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-700 rounded-2xl">
+            <Search size={48} className="mb-4 opacity-50" />
+            <p>{t.noResults}</p>
+          </div>
         ) : (
-          items.map((item) => (
+          filtered.map((item) => (
             <div key={item.id} className="relative">
               <button
                 type="button"
@@ -137,20 +226,49 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
                       {new Date(item.timestamp).toLocaleDateString()}, {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
-                  <p className="text-slate-400 text-sm line-clamp-3 sm:line-clamp-4 leading-relaxed">
+                  {/* country / type chips when available */}
+                  {(item.info?.country || item.info?.category) && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {item.info?.country && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-300 bg-slate-700/50 border border-slate-600/50 rounded-full px-2 py-0.5">
+                          {item.info.countryCode && (
+                            <img src={`https://cdn.jsdelivr.net/gh/HatScripts/circle-flags/flags/${item.info.countryCode}.svg`} alt="" width={12} height={12} loading="lazy" className="w-3 h-3 rounded-full" />
+                          )}
+                          {item.info.country}
+                        </span>
+                      )}
+                      {item.info?.category && (
+                        <span className="text-[11px] text-slate-300 bg-slate-700/50 border border-slate-600/50 rounded-full px-2 py-0.5">{item.info.category}</span>
+                      )}
+                    </div>
+                  )}
+                  <p className="text-slate-400 text-sm line-clamp-2 sm:line-clamp-3 leading-relaxed">
                     {item.summary}
                   </p>
                 </div>
               </button>
 
-              {/* Per-item actions (share + delete), over the thumbnail corner */}
-              <div className="absolute top-2 right-2 sm:left-2 sm:right-auto z-10 flex gap-1.5">
+              {/* Per-item actions grouped in one pill so they read as a clear toolbar
+                  instead of separate icons blending into the photo behind them. */}
+              <div className="absolute top-2 right-2 sm:left-2 sm:right-auto z-10 flex items-center gap-0.5 bg-slate-900/85 backdrop-blur-md rounded-full p-1 border border-slate-700/60 shadow-lg">
+                <button
+                  type="button"
+                  onClick={() => onToggleFavorite(item)}
+                  aria-label={`${item.favorite ? t.removeFavorite : t.addFavorite}: ${item.landmarkName}`}
+                  aria-pressed={!!item.favorite}
+                  title={item.favorite ? t.removeFavorite : t.addFavorite}
+                  className={`p-2 rounded-full transition-colors ${
+                    item.favorite ? 'text-amber-400' : 'text-slate-300 hover:text-amber-400 hover:bg-white/10'
+                  }`}
+                >
+                  <Star size={16} className={item.favorite ? 'fill-amber-400' : ''} />
+                </button>
                 <button
                   type="button"
                   onClick={() => handleShare(item)}
                   aria-label={`${t.share}: ${item.landmarkName}`}
                   title={t.share}
-                  className="p-2 rounded-full bg-slate-900/80 backdrop-blur-sm text-slate-200 hover:bg-indigo-600 hover:text-white border border-slate-700/60 shadow-lg transition-colors"
+                  className="p-2 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   {sharedId === item.id ? <Check size={16} className="text-green-400" /> : <Share2 size={16} />}
                 </button>
@@ -159,7 +277,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
                   onClick={() => onDelete(item.id)}
                   aria-label={`${t.deleteItem}: ${item.landmarkName}`}
                   title={t.deleteItem}
-                  className="p-2 rounded-full bg-slate-900/80 backdrop-blur-sm text-slate-200 hover:bg-red-600 hover:text-white border border-slate-700/60 shadow-lg transition-colors"
+                  className="p-2 rounded-full text-slate-300 hover:text-red-400 hover:bg-white/10 transition-colors"
                 >
                   <Trash2 size={16} />
                 </button>

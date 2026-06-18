@@ -1,13 +1,14 @@
 import React, { useRef } from 'react';
-import { Camera, Upload, Image as ImageIcon } from 'lucide-react';
+import { Camera, Upload, Image as ImageIcon, LocateFixed } from 'lucide-react';
 import { Translation } from '../types';
 
 interface PhotoInputProps {
   onImageSelect: (file: File, source: 'camera' | 'upload') => void;
+  onNearMe: () => void;
   t: Translation;
 }
 
-export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
+export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, onNearMe, t }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, source: 'camera' | 'upload') => {
@@ -77,16 +78,16 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
             </label>
           </div>
 
-          {/* Upload Button (SECOND - SLATE) */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full group/btn relative flex items-center justify-center gap-3 bg-slate-700/80 hover:bg-slate-600/80 text-slate-200 font-semibold py-4 px-6 rounded-xl transition-all duration-300 border border-indigo-500/30 hover:border-indigo-500/50"
-          >
-            <Upload size={20} className="group-hover:-translate-y-0.5 transition-transform" />
-            <span>{t.uploadBtn}</span>
-          </button>
-          
+          {/* Upload Button (SECOND - SLATE) — button + its hidden input wrapped
+              together so there's no empty layout child disturbing the spacing rhythm. */}
           <div className="relative">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full group/btn relative flex items-center justify-center gap-3 bg-slate-700/80 hover:bg-slate-600/80 text-slate-200 font-semibold py-4 px-6 rounded-xl transition-all duration-300 border border-indigo-500/30 hover:border-indigo-500/50"
+            >
+              <Upload size={20} className="group-hover:-translate-y-0.5 transition-transform" />
+              <span>{t.uploadBtn}</span>
+            </button>
             <input
               type="file"
               accept="image/*"
@@ -96,9 +97,21 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, t }) => {
             />
           </div>
 
+          {/* Divider between photo-based and location-based discovery */}
+          <div className="h-px bg-white/10" />
+
+          {/* "Near me now" — discover landmarks around the user without a photo */}
+          <button
+            onClick={onNearMe}
+            className="w-full group/near relative flex items-center justify-center gap-3 bg-slate-700/60 hover:bg-slate-600/70 text-slate-200 font-semibold py-4 px-6 rounded-xl transition-all duration-300 border border-emerald-500/30 hover:border-emerald-500/50"
+          >
+            <LocateFixed size={20} className="text-emerald-400 group-hover/near:scale-110 transition-transform" />
+            <span>{t.nearMeBtn}</span>
+          </button>
+
         </div>
         
-        <div className="mt-8 pt-6 border-t border-white/15 flex items-center justify-center gap-2 text-xs text-slate-400">
+        <div className="mt-4 pt-6 border-t border-white/15 flex items-center justify-center gap-2 text-xs text-slate-400">
           <ImageIcon size={14} />
           <span>{t.supports}</span>
         </div>

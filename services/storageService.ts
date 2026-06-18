@@ -2,8 +2,16 @@ import { HistoryItem } from '../types';
 import { db } from './firebase';
 import { capItems, MAX_HISTORY_ITEMS } from './historyUtils';
 import {
-  collection, doc, getDocs, setDoc, deleteDoc, query, orderBy, limit, writeBatch, getCountFromServer,
+  collection, doc, getDocs, setDoc, updateDoc, deleteDoc, query, orderBy, limit, writeBatch, getCountFromServer,
 } from 'firebase/firestore';
+
+// Firestore rejects `undefined` field values, so drop any before writing.
+// (Newer optional fields like `info` use null/"" for "unknown", never undefined.)
+function stripUndefined<T extends Record<string, any>>(obj: T): T {
+  const out: any = {};
+  for (const [k, v] of Object.entries(obj)) if (v !== undefined) out[k] = v;
+  return out;
+}
 
 // Helper to resize image for thumbnail storage
 export const createThumbnail = async (base64Image: string): Promise<string> => {
@@ -125,7 +133,7 @@ export async function saveHistoryItem(uid: string, item: HistoryItem): Promise<H
   writeCache(uid, optimistic); // optimistic cache update
   if (!db) return optimistic;
   try {
-    await setDoc(doc(historyCol(uid), item.id), item);
+    await setDoc(doc(historyCol(uid), item.id), stripUndefined(item));
     // Evict via COUNT (avoids a full collection read).
     const cnt = (await getCountFromServer(historyCol(uid))).data().count;
     if (cnt > MAX_HISTORY_ITEMS) {
@@ -139,6 +147,20 @@ export async function saveHistoryItem(uid: string, item: HistoryItem): Promise<H
     console.error('saveHistoryItem failed (kept in local cache)', e);
   }
   return optimistic;
+}
+
+// Toggle the ⭐ favorite flag on a saved item, in place (no reorder). Updates the
+// local cache immediately and the Firestore doc field when signed in.
+export async function setFavorite(uid: string, id: string, favorite: boolean): Promise<HistoryItem[]> {
+  const next = readCache(uid).map(i => (i.id === id ? { ...i, favorite } : i));
+  writeCache(uid, next); // optimistic cache update
+  if (!db) return next;
+  try {
+    await updateDoc(doc(historyCol(uid), id), { favorite });
+  } catch (e) {
+    console.error('setFavorite failed (cache already updated)', e);
+  }
+  return next;
 }
 
 export async function deleteHistoryItem(uid: string, id: string): Promise<HistoryItem[]> {

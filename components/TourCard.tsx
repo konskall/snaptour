@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Pause, ExternalLink, MapPin, Sparkles, Loader2, Share2, Check, MessageCircle, Map as MapIcon, Compass, ChevronDown, ChevronUp, Volume2, LocateFixed } from 'lucide-react';
+import { Pause, ExternalLink, MapPin, Sparkles, Loader2, Share2, Check, MessageCircle, Map as MapIcon, Compass, ChevronDown, ChevronUp, Volume2, LocateFixed, SlidersHorizontal, Clock, Ticket, Tag, Sun, Globe } from 'lucide-react';
 import { AnalysisResult, Translation, NearbyPlace } from '../types';
 import { getNearbyPlaces } from '../services/geminiService';
 
@@ -23,7 +23,20 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   const [justShared, setJustShared] = useState(false);
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
-  const [isSourcesOpen, setIsSourcesOpen] = useState(false); 
+  const [isSourcesOpen, setIsSourcesOpen] = useState(false);
+
+  // Native-voice controls: playback speed + which installed voice to use. Persisted
+  // so a traveler's preference sticks across landmarks/sessions. Affects only the
+  // instant browser voice (the HD voice is a separate Gemini engine).
+  const [rate, setRate] = useState<number>(() => {
+    try { const v = parseFloat(localStorage.getItem('snaptour_voice_rate') || ''); return v >= 0.5 && v <= 2 ? v : 0.95; }
+    catch { return 0.95; }
+  });
+  const [voiceURI, setVoiceURI] = useState<string>(() => {
+    try { return localStorage.getItem('snaptour_voice_uri') || ''; } catch { return ''; }
+  });
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [showVoiceMenu, setShowVoiceMenu] = useState(false);
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
@@ -78,9 +91,26 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
     fetchNearby();
   }, [result.landmarkName, langName]);
 
+  // Load installed system voices (populated asynchronously on some browsers) and
+  // persist the user's voice/speed preferences.
+  useEffect(() => {
+    const load = () => setVoices(window.speechSynthesis?.getVoices?.() || []);
+    load();
+    window.speechSynthesis?.addEventListener?.('voiceschanged', load);
+    return () => window.speechSynthesis?.removeEventListener?.('voiceschanged', load);
+  }, []);
+  useEffect(() => { try { localStorage.setItem('snaptour_voice_rate', String(rate)); } catch { /* ignore */ } }, [rate]);
+  useEffect(() => { try { localStorage.setItem('snaptour_voice_uri', voiceURI); } catch { /* ignore */ } }, [voiceURI]);
+
+  // Voices offered in the picker: those matching the current UI language, or all if none match.
+  const langVoices = voices.filter(v => v.lang?.toLowerCase().startsWith(langCode.toLowerCase()));
+  const voiceOptions = langVoices.length ? langVoices : voices;
+
   // --- NATIVE TTS LOGIC ---
 
-  const speakNative = () => {
+  // Optional rate/voice overrides let a setting change restart playback immediately
+  // with the new value (React state may not have flushed yet at call time).
+  const speakNative = (rateArg = rate, voiceArg = voiceURI) => {
      if (!result.detailedInfo) return;
 
      if (window.speechSynthesis.paused && window.speechSynthesis.speaking) {
@@ -89,21 +119,22 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
          return;
      }
 
-     window.speechSynthesis.cancel(); 
-     
+     window.speechSynthesis.cancel();
+
      const utterance = new SpeechSynthesisUtterance(result.detailedInfo);
      utteranceRef.current = utterance;
 
-     utterance.rate = 0.9; 
+     utterance.rate = rateArg;
      utterance.pitch = 1.0;
 
      const setVoiceAndSpeak = () => {
-         const voices = window.speechSynthesis.getVoices();
-         const voice = voices.find(v => v.lang.startsWith(langCode)) || voices.find(v => v.lang.includes(langCode));
+         const all = window.speechSynthesis.getVoices();
+         const voice = (voiceArg && all.find(v => v.voiceURI === voiceArg))
+            || all.find(v => v.lang.startsWith(langCode)) || all.find(v => v.lang.includes(langCode));
          if (voice) {
             utterance.voice = voice;
          }
-         
+
          utterance.onend = () => {
              setIsPlaying(false);
              utteranceRef.current = null;
@@ -249,6 +280,17 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
     }
   };
 
+  // Apply a speed / voice change. If the native voice is mid-sentence, restart it
+  // immediately with the new setting (SpeechSynthesis can't retune a live utterance).
+  const changeRate = (r: number) => {
+    setRate(r);
+    if (activeEngine === 'native' && isPlaying) { window.speechSynthesis.cancel(); speakNative(r, voiceURI); }
+  };
+  const changeVoice = (uri: string) => {
+    setVoiceURI(uri);
+    if (activeEngine === 'native' && isPlaying) { window.speechSynthesis.cancel(); speakNative(rate, uri); }
+  };
+
   // SECONDARY control: the premium Gemini "HD" voice (slower + limited daily quota).
   // Generates on first use, then plays/pauses the cached buffer.
   const handleAiPlay = () => {
@@ -358,23 +400,28 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
         
         {/* Header Image/Title Area */}
         <div className="p-6 pb-2 shrink-0">
-          <div className="flex items-center justify-between gap-3 mb-2">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-indigo-400 min-w-0">
-              <MapPin size={16} />
-              <span className="text-xs font-bold tracking-wider">{t.landmarkLabel}</span>
-              {locatedByGps && (
-                <span
-                  title="Identified using your location"
-                  className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-full px-2 py-0.5"
-                >
-                  <LocateFixed size={11} />
-                  GPS
-                </span>
-              )}
-            </div>
+          {/* Caption — own full-width row so the location icon + label always stay
+              inline (never orphaned onto a second line) and use the whole card width. */}
+          <div className="flex items-center gap-2 text-indigo-400 mb-1.5 min-w-0">
+            <MapPin size={16} className="shrink-0" />
+            <span className="text-xs font-bold tracking-wider truncate">{t.landmarkLabel}</span>
+            {locatedByGps && (
+              <span
+                title="Identified using your location"
+                className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-full px-2 py-0.5 shrink-0"
+              >
+                <LocateFixed size={11} />
+                GPS
+              </span>
+            )}
+          </div>
 
-            {/* Audio & Chat Controls */}
-            <div className="flex gap-2 sm:gap-3 items-center shrink-0">
+          {/* Title — own full-width row so long names wrap minimally. */}
+          <h2 id="tour-title" className="text-xl sm:text-3xl font-bold text-white leading-tight break-words">{result.landmarkName}</h2>
+
+          {/* Audio & Chat controls — own right-aligned row, so they never squeeze the
+              caption/title on narrow screens. */}
+          <div className="flex gap-2 sm:gap-3 items-center justify-end mt-3">
               <button
                 onClick={onChat}
                 className="w-12 h-12 rounded-full bg-slate-700/80 hover:bg-slate-600 text-indigo-300 flex items-center justify-center border border-slate-600 transition-all hover:scale-105"
@@ -416,11 +463,68 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                       : <Sparkles size={18} />)}
                 <span className="absolute -bottom-0.5 -right-0.5 text-[8px] font-bold bg-slate-900 text-slate-200 rounded px-0.5 leading-tight border border-slate-700">HD</span>
               </button>
-            </div>
+
+              {/* Voice & speed settings (affects the standard browser voice) */}
+              <button
+                onClick={() => setShowVoiceMenu(v => !v)}
+                aria-label={t.voiceLabel}
+                aria-expanded={showVoiceMenu}
+                title={t.voiceLabel}
+                className={`flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center border transition-all hover:scale-105 ${
+                  showVoiceMenu
+                    ? 'bg-slate-600 text-white border-slate-500'
+                    : 'bg-slate-700/80 hover:bg-slate-600 text-slate-300 border-slate-600'
+                }`}
+              >
+                <SlidersHorizontal size={18} />
+              </button>
           </div>
-          {/* Title on its own full-width row so long names wrap minimally instead of
-              squeezing into a narrow column beside the action buttons. */}
-          <h2 id="tour-title" className="text-xl sm:text-3xl font-bold text-white leading-tight break-words">{result.landmarkName}</h2>
+
+          {/* Voice & speed panel — collapsible, applies to the standard (native) voice */}
+          {showVoiceMenu && (
+            <div className="mb-2 rounded-xl border border-slate-700 bg-slate-800/60 p-3 space-y-3 animate-fade-in">
+              <div className="flex items-center gap-2 text-slate-300">
+                <SlidersHorizontal size={13} className="text-indigo-400" />
+                <span className="text-xs font-semibold tracking-wide">{t.voiceLabel}</span>
+              </div>
+              {/* Speed */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 w-16 shrink-0">{t.speedLabel}</span>
+                <div className="flex gap-1.5 flex-wrap">
+                  {[0.75, 1, 1.25, 1.5].map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => changeRate(r)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+                        Math.abs(rate - r) < 0.01
+                          ? 'bg-indigo-600 text-white border-indigo-500'
+                          : 'bg-slate-700/60 text-slate-300 border-slate-600 hover:bg-slate-700'
+                      }`}
+                    >
+                      {r}×
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Voice picker */}
+              {voiceOptions.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="w-16 shrink-0 flex items-center text-slate-400" aria-hidden="true"><Volume2 size={14} /></span>
+                  <select
+                    value={voiceURI}
+                    onChange={(e) => changeVoice(e.target.value)}
+                    aria-label={t.voiceLabel}
+                    className="flex-1 min-w-0 bg-slate-900 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="">{t.voiceDefault}</option>
+                    {voiceOptions.map((v) => (
+                      <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Scrollable Content */}
@@ -432,6 +536,66 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
               {result.detailedInfo}
             </p>
           </div>
+
+          {/* Useful info — structured practical facts (hours, ticket, best time, site).
+              Each row renders only when the model returned a value for it. */}
+          {(() => {
+            const m = result.meta;
+            if (!m) return null;
+            const location = [m.city, m.country].map(s => (s || '').trim()).filter(Boolean).join(', ');
+            const rows: { icon: React.ReactNode; label: string; value: React.ReactNode }[] = [];
+            if (location) rows.push({
+              icon: <MapPin size={15} />,
+              label: t.infoLocation,
+              value: (
+                <span className="inline-flex items-center gap-1.5">
+                  {m.countryCode && (
+                    <img
+                      src={`https://cdn.jsdelivr.net/gh/HatScripts/circle-flags/flags/${m.countryCode}.svg`}
+                      alt="" width={14} height={14} loading="lazy" decoding="async"
+                      className="w-3.5 h-3.5 rounded-full ring-1 ring-white/10"
+                    />
+                  )}
+                  {location}
+                </span>
+              ),
+            });
+            if (m.category) rows.push({ icon: <Tag size={15} />, label: t.infoType, value: m.category });
+            if (m.openingHours) rows.push({ icon: <Clock size={15} />, label: t.infoHours, value: m.openingHours });
+            if (m.ticket) rows.push({ icon: <Ticket size={15} />, label: t.infoTicket, value: m.ticket });
+            if (m.bestTime) rows.push({ icon: <Sun size={15} />, label: t.infoBestTime, value: m.bestTime });
+            if (m.website) {
+              let host = m.website;
+              try { host = new URL(m.website).hostname.replace(/^www\./, ''); } catch { /* keep raw */ }
+              rows.push({
+                icon: <Globe size={15} />,
+                label: t.infoWebsite,
+                value: (
+                  <a href={m.website} target="_blank" rel="noopener noreferrer" className="text-indigo-300 hover:text-indigo-200 underline decoration-indigo-400/40 underline-offset-2 break-all">
+                    {host}
+                  </a>
+                ),
+              });
+            }
+            if (rows.length === 0) return null;
+            return (
+              <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/30">
+                <h3 className="text-xs font-semibold text-slate-400 mb-3 flex items-center gap-2">
+                  <Sparkles size={12} className="text-amber-400" />
+                  {t.usefulInfo}
+                </h3>
+                <dl className="space-y-2.5">
+                  {rows.map((row, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <span className="text-indigo-400 mt-0.5 shrink-0">{row.icon}</span>
+                      <dt className="text-xs text-slate-500 w-20 shrink-0 pt-0.5">{row.label}</dt>
+                      <dd className="text-sm text-slate-200 flex-1 min-w-0">{row.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            );
+          })()}
 
           {/* Mini-Map */}
           <div className="space-y-2">

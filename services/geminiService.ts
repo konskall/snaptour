@@ -1,6 +1,6 @@
 import type { GoogleGenAI } from "@google/genai";
 import { decodeBase64, decodeAudioData } from "./audioUtils";
-import { GroundingChunk, LandmarkIdentification, ChatMessage, NearbyPlace } from "../types";
+import { GroundingChunk, LandmarkIdentification, ChatMessage, NearbyPlace, LandmarkMeta } from "../types";
 
 // Lazily load the heavy @google/genai SDK so Vite code-splits it into its own
 // chunk that is only fetched when the user first triggers an AI call, keeping
@@ -291,6 +291,124 @@ export async function getNearbyPlaces(landmarkName: string, language: string): P
     return [];
   } catch (error) {
     console.warn("Failed to get nearby places:", error);
+    return [];
+  }
+}
+
+// 6. Structured "useful info" about a landmark — powers the Useful Info card AND the
+// metadata behind the visited map (coordinates), passport stamps and history filters
+// (country / category). Runs on gemini-3.1-flash-lite with a JSON response schema (no
+// grounding, so it uses a separate quota bucket from the grounded scan calls). Returns
+// null on any failure so the scan never breaks because of it.
+export async function getLandmarkInfo(landmarkName: string, language: string): Promise<LandmarkMeta | null> {
+  try {
+    const ai = await getAI();
+    const { Type } = await loadSdk();
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-lite",
+      contents: `Provide structured facts about the landmark "${landmarkName}".
+Return values in ${language} EXCEPT countryCode and website.
+- country: country name (in ${language}).
+- countryCode: ISO 3166-1 alpha-2 code, lowercase (e.g. "fr", "gr", "us"). "" if unknown.
+- city: city/area (in ${language}).
+- category: a short type label in ${language} (e.g. Monument, Museum, Religious site, Park/Nature, Square, Castle, Bridge, Archaeological site). "" if unknown.
+- lat / lng: the landmark's approximate decimal coordinates. Use 0 only if genuinely unknown.
+- openingHours: typical visiting hours in one short phrase (in ${language}), or "Open 24h" / "" if not applicable or unknown.
+- ticket: typical entry cost in one short phrase (in ${language}), e.g. an approximate price or "Free". "" if unknown.
+- bestTime: best time of day or season to visit, one short phrase (in ${language}). "" if not applicable.
+- website: the official website URL, or "" if you are not confident it is correct. Do NOT invent URLs.
+Be accurate. Leave a field empty ("") rather than guessing.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            country: { type: Type.STRING },
+            countryCode: { type: Type.STRING },
+            city: { type: Type.STRING },
+            category: { type: Type.STRING },
+            lat: { type: Type.NUMBER },
+            lng: { type: Type.NUMBER },
+            openingHours: { type: Type.STRING },
+            ticket: { type: Type.STRING },
+            bestTime: { type: Type.STRING },
+            website: { type: Type.STRING },
+          },
+          required: ["country", "countryCode", "city", "category", "lat", "lng", "openingHours", "ticket", "bestTime", "website"],
+        },
+      },
+    });
+
+    if (!response.text) return null;
+    const raw = JSON.parse(response.text);
+    const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+    // Treat 0/0 and out-of-range numbers as "unknown" (model's null sentinel).
+    const coord = (v: unknown, max: number): number | null => {
+      const n = typeof v === 'number' ? v : Number(v);
+      if (!Number.isFinite(n) || n === 0 || Math.abs(n) > max) return null;
+      return n;
+    };
+    let website = str(raw?.website);
+    if (website && !/^https?:\/\//i.test(website)) website = `https://${website}`;
+    return {
+      country: str(raw?.country),
+      countryCode: str(raw?.countryCode).toLowerCase().slice(0, 2),
+      city: str(raw?.city),
+      category: str(raw?.category),
+      lat: coord(raw?.lat, 90),
+      lng: coord(raw?.lng, 180),
+      openingHours: str(raw?.openingHours),
+      ticket: str(raw?.ticket),
+      bestTime: str(raw?.bestTime),
+      website,
+    };
+  } catch (error) {
+    console.warn("Failed to get landmark info:", error);
+    return null;
+  }
+}
+
+// 7. "Near me now": famous landmarks around the user's current location, WITHOUT a photo.
+// Reuses the same details/chat pipeline once the user picks one. Non-grounded JSON call.
+export async function getNearbyLandmarks(coords: { lat: number; lng: number }, language: string): Promise<NearbyPlace[]> {
+  try {
+    const ai = await getAI();
+    const { Type } = await loadSdk();
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-lite",
+      contents: `List 6 famous, recognizable landmarks or notable attractions a tourist would want to visit near GPS coordinates ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}.
+Order them by how close and how famous they are (closest/most iconic first).
+For each provide:
+- name: the landmark name including its city (in ${language}).
+- description: what it is, under 12 words (in ${language}).
+Only include real, well-known places that genuinely exist near these coordinates.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              description: { type: Type.STRING },
+            },
+            required: ["name", "description"],
+          },
+        },
+      },
+    });
+
+    if (response.text) {
+      const list = JSON.parse(response.text);
+      if (Array.isArray(list)) {
+        return list
+          .filter((p) => p && typeof p.name === 'string' && p.name.trim())
+          .map((p) => ({ name: String(p.name).trim(), description: String(p.description ?? '').trim() }));
+      }
+    }
+    return [];
+  } catch (error) {
+    console.warn("Failed to get nearby landmarks:", error);
     return [];
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { PhotoInput } from './components/PhotoInput';
 import { TourCard } from './components/TourCard';
 import { LandmarkSelector } from './components/LandmarkSelector';
@@ -6,15 +6,20 @@ import { HistoryView } from './components/HistoryView';
 import { ScanningView } from './components/ScanningView';
 import { SkeletonCard } from './components/SkeletonCard';
 import { ChatView } from './components/ChatView';
-import { identifyLandmarkFromImage, getLandmarkDetails, generateNarrationAudio } from './services/geminiService';
+import { NearbyLandmarks } from './components/NearbyLandmarks';
+import { PassportView } from './components/PassportView';
+import { identifyLandmarkFromImage, getLandmarkDetails, generateNarrationAudio, getLandmarkInfo, getNearbyLandmarks } from './services/geminiService';
 import { getDeviceLocation, getExifGps } from './services/locationUtils';
-import { saveHistoryItem, getHistory, createThumbnail, createScaledImage, clearHistory, deleteHistoryItem, migrateLocalHistory } from './services/storageService';
+import { saveHistoryItem, getHistory, createThumbnail, createScaledImage, clearHistory, deleteHistoryItem, migrateLocalHistory, setFavorite } from './services/storageService';
 import { auth, isFirebaseConfigured } from './services/firebase';
 import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
-import { AppState, AnalysisResult, LandmarkIdentification, User, HistoryItem } from './types';
-import { Loader2, Globe, History, UserCircle, LogOut, Zap, AlertTriangle, ExternalLink } from 'lucide-react';
+import { AppState, AnalysisResult, LandmarkIdentification, LandmarkMeta, User, HistoryItem, NearbyPlace } from './types';
+import { Loader2, Globe, History, LogOut, Zap, AlertTriangle, ExternalLink, MapPinned, Award } from 'lucide-react';
 import { Logo } from './components/Logo';
 import { LANGUAGES, translations } from './translations';
+
+// Leaflet + its CSS are heavy, so the visited-places map loads only when opened.
+const VisitedMap = lazy(() => import('./components/VisitedMap'));
 
 const VIEW_KEY = 'snaptour_view';
 
@@ -47,6 +52,10 @@ const App: React.FC = () => {
   // Whether the latest scan used a location hint (EXIF / device GPS) — drives a small
   // badge on the result. Not relevant for history items.
   const [scanUsedLocation, setScanUsedLocation] = useState(false);
+  // "Near me now" state
+  const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [nearbyDenied, setNearbyDenied] = useState(false);
   const [missingCreds, setMissingCreds] = useState<string[]>([]);
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
   
@@ -241,6 +250,35 @@ const App: React.FC = () => {
     }
   };
 
+  const handleToggleFavorite = async (item: HistoryItem) => {
+    if (user) {
+      setUserHistory(await setFavorite(user.uid, item.id, !item.favorite));
+    }
+  };
+
+  // "Near me now": discover famous landmarks around the user's current location, no
+  // photo. Picking one runs the same details pipeline as a scan.
+  const handleNearMe = async () => {
+    setIsUserMenuOpen(false);
+    // Clear any prior result/image so a near-me pick (which has no photo) doesn't
+    // inherit a stale thumbnail when it's saved to history.
+    setSelectedImage(null);
+    setResult(null);
+    setNearbyPlaces([]);
+    setNearbyDenied(false);
+    setNearbyLoading(true);
+    setState(AppState.NEARBY);
+    const coords = await getDeviceLocation();
+    if (!coords) {
+      setNearbyDenied(true);
+      setNearbyLoading(false);
+      return;
+    }
+    const places = await getNearbyLandmarks(coords, currentLangName);
+    setNearbyPlaces(places);
+    setNearbyLoading(false);
+  };
+
   const handleGenerateAudio = async () => {
     if (!result || isGeneratingAudio) return;
     
@@ -272,7 +310,8 @@ const App: React.FC = () => {
       detailedInfo: textContent,
       groundingSources: item.groundingSources || [],
       audioBuffer: null,
-      nativeTTSFallback: false
+      nativeTTSFallback: false,
+      meta: item.info, // restore the Useful info card from saved metadata
     });
     setSelectedImage(`data:image/jpeg;base64,${item.thumbnail}`);
     setState(AppState.SHOWING_RESULT);
@@ -325,7 +364,7 @@ const App: React.FC = () => {
       // Require a non-empty name too: the model returns an empty name for "not a
       // landmark", which must never be auto-fetched (it would narrate nonsense).
       if (idResult.confidence >= CONFIDENCE_THRESHOLD && idResult.name) {
-        fetchDetails(idResult.name, fullImageData);
+        fetchDetails(idResult.name, fullImageData, coords);
       } else {
         setState(AppState.SELECTING_LANDMARK);
       }
@@ -341,38 +380,58 @@ const App: React.FC = () => {
     }
   };
 
-  const fetchDetails = async (landmarkName: string, imageOverride?: string) => {
+  const fetchDetails = async (
+    landmarkName: string,
+    imageOverride?: string,
+    scanCoords?: { lat: number; lng: number },
+    opts?: { save?: boolean },
+  ) => {
     try {
       setState(AppState.FETCHING_DETAILS);
 
       // Reset Audio State - user must click play to generate
       setIsGeneratingAudio(false);
 
-      const { text: detailedInfo, sources } = await getLandmarkDetails(landmarkName, currentLangName);
+      // Grounded narrative + structured "useful info" in parallel. Info is a non-grounded
+      // call on a separate quota bucket and is best-effort — it never blocks the result.
+      const [{ text: detailedInfo, sources }, info] = await Promise.all([
+        getLandmarkDetails(landmarkName, currentLangName),
+        getLandmarkInfo(landmarkName, currentLangName).catch(() => null),
+      ]);
+      const meta: LandmarkMeta | undefined = info || undefined;
       setResult({
         landmarkName,
         detailedInfo,
         groundingSources: sources,
         audioBuffer: null,
-        nativeTTSFallback: false
+        nativeTTSFallback: false,
+        meta,
       });
       setState(AppState.SHOWING_RESULT);
 
+      // Save when there's an image to attach (a photo scan) or when the caller asks
+      // (e.g. a "Near me now" pick, which has no photo). Deep links don't save.
       const imageToSave = imageOverride || selectedImage;
-      if (user && imageToSave) {
-        const thumbnail = await createThumbnail(imageToSave);
+      if (user && (imageToSave || opts?.save)) {
+        const thumbnail = imageToSave ? await createThumbnail(imageToSave) : '';
+        // Best coordinates for the visited map: real scan GPS if we had it, else the
+        // model's estimate from the metadata.
+        const lat = scanCoords?.lat ?? meta?.lat ?? undefined;
+        const lng = scanCoords?.lng ?? meta?.lng ?? undefined;
         const historyItem: HistoryItem = {
            id: Date.now().toString(),
            timestamp: Date.now(),
            landmarkName: landmarkName,
            summary: detailedInfo.substring(0, 100) + "...",
-           detailedInfo: detailedInfo, 
-           groundingSources: sources, 
-           thumbnail: thumbnail
+           detailedInfo: detailedInfo,
+           groundingSources: sources,
+           thumbnail: thumbnail,
+           ...(meta ? { info: meta } : {}),
+           ...(lat != null && lng != null ? { lat, lng } : {}),
         };
         setUserHistory(await saveHistoryItem(user.uid, historyItem));
       }
-      
+
       // We do NOT automatically generate audio anymore to prevent hitting rate limits
       // Audio is generated on-demand when the user clicks Play
 
@@ -411,6 +470,9 @@ const App: React.FC = () => {
     setErrorMsg('');
     setIsGeneratingAudio(false);
     setScanUsedLocation(false);
+    setNearbyPlaces([]);
+    setNearbyDenied(false);
+    setNearbyLoading(false);
   };
 
   const handleLanguageChange = (code: string) => {
@@ -587,6 +649,28 @@ const App: React.FC = () => {
                      </button>
                      <button
                        role="menuitem"
+                       onClick={() => {
+                         setState(AppState.VIEWING_MAP);
+                         setIsUserMenuOpen(false);
+                       }}
+                       className="w-full text-left px-4 py-3 text-sm hover:bg-slate-700 transition-colors flex items-center gap-3 text-slate-200"
+                     >
+                       <MapPinned size={16} className="text-emerald-400" />
+                       {t.mapMenu}
+                     </button>
+                     <button
+                       role="menuitem"
+                       onClick={() => {
+                         setState(AppState.VIEWING_PASSPORT);
+                         setIsUserMenuOpen(false);
+                       }}
+                       className="w-full text-left px-4 py-3 text-sm hover:bg-slate-700 transition-colors flex items-center gap-3 text-slate-200"
+                     >
+                       <Award size={16} className="text-amber-400" />
+                       {t.passportMenu}
+                     </button>
+                     <button
+                       role="menuitem"
                        onClick={handleLogout}
                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-700 transition-colors flex items-center gap-3 text-red-300"
                      >
@@ -605,7 +689,18 @@ const App: React.FC = () => {
       <main className="relative z-10 w-full h-full flex flex-col">
         
         {state === AppState.IDLE && (
-          <PhotoInput onImageSelect={handleImageSelect} t={t} />
+          <PhotoInput onImageSelect={handleImageSelect} onNearMe={handleNearMe} t={t} />
+        )}
+
+        {state === AppState.NEARBY && (
+          <NearbyLandmarks
+            places={nearbyPlaces}
+            loading={nearbyLoading}
+            denied={nearbyDenied}
+            onSelect={(name) => fetchDetails(name, undefined, undefined, { save: true })}
+            onClose={resetApp}
+            t={t}
+          />
         )}
 
         {state === AppState.SELECTING_LANDMARK && identificationResult && (
@@ -624,6 +719,30 @@ const App: React.FC = () => {
             onClear={handleClearHistory}
             onSelect={handleHistorySelect}
             onDelete={handleDeleteHistoryItem}
+            onToggleFavorite={handleToggleFavorite}
+            t={t}
+          />
+        )}
+
+        {state === AppState.VIEWING_MAP && (
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-full pt-header">
+              <Loader2 size={32} className="animate-spin text-emerald-400" />
+            </div>
+          }>
+            <VisitedMap
+              items={userHistory}
+              onClose={() => setState(AppState.IDLE)}
+              onSelect={handleHistorySelect}
+              t={t}
+            />
+          </Suspense>
+        )}
+
+        {state === AppState.VIEWING_PASSPORT && (
+          <PassportView
+            items={userHistory}
+            onClose={() => setState(AppState.IDLE)}
             t={t}
           />
         )}
