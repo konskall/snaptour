@@ -110,58 +110,74 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
   return (
     <div className="flex flex-col w-full h-full p-6 pt-header animate-fade-in bg-slate-900 overflow-hidden">
 
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <h2 ref={headingRef} tabIndex={-1} className="text-3xl font-bold text-white outline-none">{t.historyTitle}</h2>
+      {/* Header — title + icon-only actions on one compact row (no "Home" label,
+          favorites toggle moved here from the filter row to save vertical space). */}
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <h2 ref={headingRef} tabIndex={-1} className="text-2xl sm:text-3xl font-bold text-white outline-none truncate">{t.historyTitle}</h2>
 
-        <div className="flex items-center gap-2 self-end sm:self-auto">
+        <div className="flex items-center gap-1.5 shrink-0">
           {items.length > 0 && (
-             <div className="relative">
-                {showConfirm ? (
-                  <div className="flex items-center gap-1.5 bg-red-900/50 border border-red-800 rounded-full px-1 py-1 animate-fade-in">
-                     <span className="text-xs text-red-200 pl-2.5 font-medium">{t.confirmClear}</span>
-                     <button
-                       onClick={() => { onClear(); setShowConfirm(false); }}
-                       className="p-1.5 bg-red-600 rounded-full text-white hover:bg-red-500 transition-colors"
-                       aria-label={t.confirmClear}
-                     >
-                       <CheckCircle size={15} />
-                     </button>
-                     <button
-                        onClick={() => setShowConfirm(false)}
-                        className="p-1.5 bg-slate-700 rounded-full text-slate-300 hover:bg-slate-600 transition-colors"
-                        aria-label={t.close}
-                     >
-                       <XCircle size={15} />
-                     </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowConfirm(true)}
-                    className="bg-slate-800/80 hover:bg-red-900/40 text-slate-400 hover:text-red-400 p-2 rounded-full transition-colors border border-slate-700"
-                    title={t.clearHistory}
-                    aria-label={t.clearHistory}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
-             </div>
+            <button
+              onClick={() => setFavOnly(v => !v)}
+              aria-pressed={favOnly}
+              title={t.favoritesOnly}
+              aria-label={t.favoritesOnly}
+              className={`w-9 h-9 rounded-full grid place-items-center border transition-colors ${
+                favOnly
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                  : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-700'
+              }`}
+            >
+              <Star size={17} className={favOnly ? 'fill-amber-300' : ''} />
+            </button>
+          )}
+
+          {items.length > 0 && (
+            showConfirm ? (
+              <div className="flex items-center gap-1.5 bg-red-900/50 border border-red-800 rounded-full px-1 py-1 animate-fade-in">
+                <span className="text-xs text-red-200 pl-2.5 font-medium">{t.confirmClear}</span>
+                <button
+                  onClick={() => { onClear(); setShowConfirm(false); }}
+                  className="p-1.5 bg-red-600 rounded-full text-white hover:bg-red-500 transition-colors"
+                  aria-label={t.confirmClear}
+                >
+                  <CheckCircle size={15} />
+                </button>
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  className="p-1.5 bg-slate-700 rounded-full text-slate-300 hover:bg-slate-600 transition-colors"
+                  aria-label={t.close}
+                >
+                  <XCircle size={15} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowConfirm(true)}
+                className="w-9 h-9 rounded-full grid place-items-center bg-slate-800/80 hover:bg-red-900/40 text-slate-400 hover:text-red-400 transition-colors border border-slate-700"
+                title={t.clearHistory}
+                aria-label={t.clearHistory}
+              >
+                <Trash2 size={16} />
+              </button>
+            )
           )}
 
           <button
             onClick={onClose}
-            className="bg-slate-800/80 hover:bg-slate-700 text-slate-200 py-2 px-3.5 rounded-full text-sm font-semibold transition-colors flex items-center gap-1.5 border border-slate-700"
+            title={t.home}
+            aria-label={t.home}
+            className="w-9 h-9 rounded-full grid place-items-center bg-slate-800/80 hover:bg-slate-700 text-slate-200 transition-colors border border-slate-700"
           >
-            <Home size={15} />
-            <span>{t.home}</span>
+            <Home size={17} />
           </button>
         </div>
       </div>
 
-      {/* Search + filters */}
+      {/* Search + inline filters (favorites toggle lives in the header now) */}
       {hasFilters && (
-        <div className="flex flex-col sm:flex-row gap-2 mb-5 shrink-0">
-          <div className="relative flex-1">
+        <div className="flex gap-2 mb-5 shrink-0">
+          <div className="relative flex-1 min-w-0">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
             <input
               type="text"
@@ -173,42 +189,28 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
               className="w-full bg-slate-800/70 border border-slate-700 rounded-full pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
             />
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setFavOnly(v => !v)}
-              aria-pressed={favOnly}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-semibold border transition-colors ${
-                favOnly
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                  : 'bg-slate-800/70 text-slate-300 border-slate-700 hover:bg-slate-700'
-              }`}
+          {countries.length > 1 && (
+            <select
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              aria-label={t.filterAll}
+              className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-full px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 max-w-[35vw]"
             >
-              <Star size={15} className={favOnly ? 'fill-amber-300' : ''} />
-              <span>{t.favoritesOnly}</span>
-            </button>
-            {countries.length > 1 && (
-              <select
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                aria-label={t.filterAll}
-                className="bg-slate-800/70 border border-slate-700 rounded-full px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 max-w-[40vw]"
-              >
-                <option value="">{t.filterAll}</option>
-                {countries.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            )}
-            {types.length > 1 && (
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                aria-label={t.filterAll}
-                className="bg-slate-800/70 border border-slate-700 rounded-full px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 max-w-[40vw]"
-              >
-                <option value="">{t.filterAll}</option>
-                {types.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            )}
-          </div>
+              <option value="">{t.filterAll}</option>
+              {countries.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          )}
+          {types.length > 1 && (
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              aria-label={t.filterAll}
+              className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-full px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 max-w-[35vw]"
+            >
+              <option value="">{t.filterAll}</option>
+              {types.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          )}
         </div>
       )}
 
