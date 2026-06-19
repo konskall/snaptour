@@ -453,8 +453,11 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
       index === self.findIndex((s) => s.web?.uri === source.web?.uri)
   );
 
+  // On sm+ the card is vertically centered; pad the top by the floating header's height so
+  // the centered card never slides up under the header (logo / language / account). Mobile
+  // keeps p-0 + justify-end (bottom sheet) — untouched.
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center p-0 sm:p-6 pointer-events-none">
+    <div className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center p-0 sm:px-6 sm:pb-6 sm:pt-[calc(var(--header-h,5rem)+0.5rem)] pointer-events-none">
       {/* Overlay Background Gradient */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none" />
 
