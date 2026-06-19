@@ -12,13 +12,20 @@ interface VisitedMapProps {
   t: Translation;
 }
 
-// Teardrop pin as an inline SVG (favorites in amber, others emerald). Using a divIcon
-// avoids Leaflet's default PNG marker assets, which break under bundlers.
+// Pin drawn as the SnapTour brand logo (teardrop + camera lens), so the visited
+// markers match the app icon. Favorites keep their amber body as a quick visual cue;
+// regular pins use the brand cyan. A divIcon avoids Leaflet's default PNG marker
+// assets, which break under bundlers. Shape mirrors components/Logo.tsx.
 const pinSvg = (favorite?: boolean) => {
-  const fill = favorite ? '#f59e0b' : '#10b981';
-  return `<svg width="30" height="30" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))">
-    <path fill="${fill}" stroke="#fff" stroke-width="1.5" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-    <circle cx="12" cy="9" r="2.6" fill="#fff"/>
+  const body = favorite ? '#f59e0b' : '#06B6D4'; // brand cyan, favorites in amber/gold
+  const depth = favorite ? '#b45309' : '#F97316'; // darker 3D edge underneath
+  return `<svg width="30" height="36" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))">
+    <path fill="${depth}" transform="translate(5,5)" d="M90 50C90 75 50 115 50 115C50 115 10 75 10 50C10 25 30 10 50 10C70 10 90 25 90 50Z"/>
+    <path fill="${body}" d="M90 50C90 75 50 115 50 115C50 115 10 75 10 50C10 25 30 10 50 10C70 10 90 25 90 50Z"/>
+    <path d="M25 30C25 30 35 20 50 20C65 20 70 25 70 25" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.3"/>
+    <circle cx="50" cy="50" r="25" fill="#0F172A"/>
+    <path d="M45 40L60 50L45 60V40Z" fill="#22D3EE" stroke="#06B6D4" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="50" cy="50" r="20" stroke="#1E293B" stroke-width="2"/>
   </svg>`;
 };
 
@@ -61,9 +68,9 @@ const VisitedMap: React.FC<VisitedMapProps> = ({ items, onClose, onSelect, t }) 
         icon: L.divIcon({
           className: '',
           html: pinSvg(p.item.favorite),
-          iconSize: [30, 30],
-          iconAnchor: [15, 30],
-          popupAnchor: [0, -28],
+          iconSize: [30, 36],
+          iconAnchor: [15, 36],
+          popupAnchor: [0, -34],
         }),
         title: p.item.landmarkName,
       }).addTo(map);
