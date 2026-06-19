@@ -8,6 +8,7 @@ import { SkeletonCard } from './components/SkeletonCard';
 import { ChatView } from './components/ChatView';
 import { NearbyLandmarks } from './components/NearbyLandmarks';
 import { PassportView } from './components/PassportView';
+import { Toast, type ToastType } from './components/Toast';
 import { identifyLandmarkFromImage, getLandmarkDetails, generateNarrationAudio, getLandmarkInfo, getNearbyLandmarks } from './services/geminiService';
 import { getDeviceLocation, getExifGps } from './services/locationUtils';
 import { saveHistoryItem, getHistory, createThumbnail, createScaledImage, clearHistory, deleteHistoryItem, migrateLocalHistory, setFavorite } from './services/storageService';
@@ -59,6 +60,9 @@ const App: React.FC = () => {
   const [nearbyDenied, setNearbyDenied] = useState(false);
   const [missingCreds, setMissingCreds] = useState<string[]>([]);
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
+  // In-app toast (replaces native alert()) for transient notices like sign-in errors.
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+  const showToast = (message: string, type: ToastType = 'info') => setToast({ message, type });
   
   // User & History State
   const [user, setUser] = useState<User | null>(null);
@@ -213,7 +217,7 @@ const App: React.FC = () => {
   const handleGoogleLogin = async () => {
     setIsUserMenuOpen(false);
     if (!auth || !isFirebaseConfigured()) {
-      alert(t.signInNotConfigured);
+      showToast(t.signInNotConfigured, 'info');
       return;
     }
     const provider = new GoogleAuthProvider();
@@ -227,7 +231,7 @@ const App: React.FC = () => {
       }
     } catch (err) {
       console.error('Google sign-in failed', err);
-      alert(t.signInFailed);
+      showToast(t.signInFailed, 'error');
     }
   };
 
@@ -509,6 +513,9 @@ const App: React.FC = () => {
   return (
     <div className="relative w-full overflow-hidden bg-slate-900 text-white" style={{ ...backgroundStyle, height: 'var(--app-height, 100vh)' }}>
       {selectedImage && <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-all duration-1000" />}
+
+      {/* In-app toast (replaces native alert) */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* In-App Browser Warning Banner */}
       {isInAppBrowser && (
