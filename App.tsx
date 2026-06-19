@@ -767,6 +767,8 @@ const App: React.FC = () => {
           <PassportView
             items={userHistory}
             onClose={() => setState(AppState.IDLE)}
+            onSelect={handleHistorySelect}
+            langCode={langCode}
             t={t}
           />
         )}

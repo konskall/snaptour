@@ -29,6 +29,21 @@ export function getContinent(countryCode?: string | null): string | null {
   return CONTINENT_BY_CC[countryCode.toLowerCase()] ?? null;
 }
 
+// Localized continent display names (the internal keys above stay English).
+const CONTINENT_NAMES: Record<string, Record<string, string>> = {
+  Europe: { en: 'Europe', es: 'Europa', fr: 'Europe', de: 'Europa', zh: '欧洲', hi: 'यूरोप', el: 'Ευρώπη' },
+  Asia: { en: 'Asia', es: 'Asia', fr: 'Asie', de: 'Asien', zh: '亚洲', hi: 'एशिया', el: 'Ασία' },
+  Africa: { en: 'Africa', es: 'África', fr: 'Afrique', de: 'Afrika', zh: '非洲', hi: 'अफ़्रीका', el: 'Αφρική' },
+  'North America': { en: 'North America', es: 'América del Norte', fr: 'Amérique du Nord', de: 'Nordamerika', zh: '北美洲', hi: 'उत्तरी अमेरिका', el: 'Βόρεια Αμερική' },
+  'South America': { en: 'South America', es: 'América del Sur', fr: 'Amérique du Sud', de: 'Südamerika', zh: '南美洲', hi: 'दक्षिण अमेरिका', el: 'Νότια Αμερική' },
+  Oceania: { en: 'Oceania', es: 'Oceanía', fr: 'Océanie', de: 'Ozeanien', zh: '大洋洲', hi: 'ओशिनिया', el: 'Ωκεανία' },
+  Antarctica: { en: 'Antarctica', es: 'Antártida', fr: 'Antarctique', de: 'Antarktis', zh: '南极洲', hi: 'अंटार्कटिका', el: 'Ανταρκτική' },
+};
+
+export function localizeContinent(continent: string, lang: string): string {
+  return CONTINENT_NAMES[continent]?.[lang] ?? CONTINENT_NAMES[continent]?.en ?? continent;
+}
+
 // Best-known coordinates for a history item: the real scan GPS if it was stored,
 // otherwise the model's estimate from the landmark metadata. null if neither.
 export function itemCoords(item: HistoryItem): { lat: number; lng: number } | null {
