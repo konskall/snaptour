@@ -655,7 +655,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
               const m = haversineMeters(userCoords, { lat, lng });
               const dir = t.compass8[cardinal8(bearingDeg(userCoords, { lat, lng }))];
               distEl = (
-                <span className="text-slate-200 truncate">
+                <span className="text-slate-200">
                   <span className="font-semibold">{formatDistance(m)}</span>
                   <span className="text-slate-400"> · {dir}</span>
                 </span>

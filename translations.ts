@@ -107,7 +107,7 @@ export const translations: Record<string, Translation> = {
     distanceUnavailable: "Distance unavailable",
     unitM: "m",
     unitKm: "km",
-    compass8: ["N", "NE", "E", "SE", "S", "SW", "W", "NW"],
+    compass8: ["north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"],
     listen: "Listen",
     pause: "Pause"
   },
@@ -207,7 +207,7 @@ export const translations: Record<string, Translation> = {
     distanceUnavailable: "Distancia no disponible",
     unitM: "m",
     unitKm: "km",
-    compass8: ["N", "NE", "E", "SE", "S", "SO", "O", "NO"],
+    compass8: ["norte", "noreste", "este", "sureste", "sur", "suroeste", "oeste", "noroeste"],
     listen: "Escuchar",
     pause: "Pausa"
   },
@@ -307,7 +307,7 @@ export const translations: Record<string, Translation> = {
     distanceUnavailable: "Distance indisponible",
     unitM: "m",
     unitKm: "km",
-    compass8: ["N", "NE", "E", "SE", "S", "SO", "O", "NO"],
+    compass8: ["nord", "nord-est", "est", "sud-est", "sud", "sud-ouest", "ouest", "nord-ouest"],
     listen: "Écouter",
     pause: "Pause"
   },
@@ -407,7 +407,7 @@ export const translations: Record<string, Translation> = {
     distanceUnavailable: "Entfernung nicht verfügbar",
     unitM: "m",
     unitKm: "km",
-    compass8: ["N", "NO", "O", "SO", "S", "SW", "W", "NW"],
+    compass8: ["Norden", "Nordosten", "Osten", "Südosten", "Süden", "Südwesten", "Westen", "Nordwesten"],
     listen: "Anhören",
     pause: "Pause"
   },
@@ -607,7 +607,7 @@ export const translations: Record<string, Translation> = {
     distanceUnavailable: "दूरी उपलब्ध नहीं",
     unitM: "मी",
     unitKm: "किमी",
-    compass8: ["उ", "उ-पू", "पू", "द-पू", "द", "द-प", "प", "उ-प"],
+    compass8: ["उत्तर", "उत्तर-पूर्व", "पूर्व", "दक्षिण-पूर्व", "दक्षिण", "दक्षिण-पश्चिम", "पश्चिम", "उत्तर-पश्चिम"],
     listen: "सुनें",
     pause: "रोकें"
   },
@@ -707,7 +707,7 @@ export const translations: Record<string, Translation> = {
     distanceUnavailable: "Απόσταση μη διαθέσιμη",
     unitM: "μ",
     unitKm: "χλμ",
-    compass8: ["Β", "ΒΑ", "Α", "ΝΑ", "Ν", "ΝΔ", "Δ", "ΒΔ"],
+    compass8: ["βόρεια", "βορειοανατολικά", "ανατολικά", "νοτιοανατολικά", "νότια", "νοτιοδυτικά", "δυτικά", "βορειοδυτικά"],
     listen: "Άκου",
     pause: "Παύση"
   }
