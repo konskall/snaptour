@@ -97,18 +97,19 @@ const VisitedMap: React.FC<VisitedMapProps> = ({ items, onClose, onSelect, t }) 
 
   return (
     <div className="flex flex-col w-full h-full bg-slate-900 animate-fade-in pt-header">
-      {/* Header */}
+      {/* Header — smaller title (was clipping on small screens) + icon-only home */}
       <div className="flex items-center justify-between gap-3 px-6 py-3 shrink-0">
-        <h2 className="text-2xl font-bold text-white flex items-center gap-2 min-w-0">
-          <MapPinned size={22} className="text-emerald-400 shrink-0" />
+        <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2 min-w-0">
+          <MapPinned size={20} className="text-emerald-400 shrink-0" />
           <span className="truncate">{t.mapTitle}</span>
         </h2>
         <button
           onClick={onClose}
-          className="shrink-0 bg-slate-800/80 hover:bg-slate-700 text-slate-200 py-2 px-3.5 rounded-full text-sm font-semibold transition-colors flex items-center gap-1.5 border border-slate-700"
+          title={t.home}
+          aria-label={t.home}
+          className="shrink-0 w-9 h-9 rounded-full grid place-items-center bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
         >
-          <Home size={15} />
-          <span>{t.home}</span>
+          <Home size={17} />
         </button>
       </div>
 
