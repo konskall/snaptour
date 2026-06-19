@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { HistoryItem, LandmarkMeta, Translation } from '../types';
-import { Calendar, MapPin, Home, Trash2, CheckCircle, XCircle, Share2, Check, Search, Star, Landmark } from 'lucide-react';
+import { Calendar, MapPin, Home, Trash2, Share2, Check, Search, Star, Landmark } from 'lucide-react';
 import { gradientFor } from '../services/placeholderUtils';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface HistoryViewProps {
   items: HistoryItem[];
@@ -54,7 +55,8 @@ const HistoryThumbnail = ({ thumbnail, alt, info }: { thumbnail: string, alt: st
 };
 
 export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClear, onSelect, onDelete, onToggleFavorite, t }) => {
-  const [showConfirm, setShowConfirm] = useState(false);
+  // Pending destructive action awaiting confirmation in the modal.
+  const [confirm, setConfirm] = useState<{ kind: 'all' } | { kind: 'item'; item: HistoryItem } | null>(null);
   const [sharedId, setSharedId] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -133,34 +135,14 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
           )}
 
           {items.length > 0 && (
-            showConfirm ? (
-              <div className="flex items-center gap-1.5 bg-red-900/50 border border-red-800 rounded-full px-1 py-1 animate-fade-in">
-                <span className="text-xs text-red-200 pl-2.5 font-medium">{t.confirmClear}</span>
-                <button
-                  onClick={() => { onClear(); setShowConfirm(false); }}
-                  className="p-1.5 bg-red-600 rounded-full text-white hover:bg-red-500 transition-colors"
-                  aria-label={t.confirmClear}
-                >
-                  <CheckCircle size={15} />
-                </button>
-                <button
-                  onClick={() => setShowConfirm(false)}
-                  className="p-1.5 bg-slate-700 rounded-full text-slate-300 hover:bg-slate-600 transition-colors"
-                  aria-label={t.close}
-                >
-                  <XCircle size={15} />
-                </button>
-              </div>
-            ) : (
               <button
-                onClick={() => setShowConfirm(true)}
+                onClick={() => setConfirm({ kind: 'all' })}
                 className="w-9 h-9 rounded-full grid place-items-center bg-slate-800/80 hover:bg-red-900/40 text-slate-400 hover:text-red-400 transition-colors border border-slate-700"
                 title={t.clearHistory}
                 aria-label={t.clearHistory}
               >
                 <Trash2 size={16} />
               </button>
-            )
           )}
 
           <button
@@ -295,7 +277,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
                 </button>
                 <button
                   type="button"
-                  onClick={() => onDelete(item.id)}
+                  onClick={() => setConfirm({ kind: 'item', item })}
                   aria-label={`${t.deleteItem}: ${item.landmarkName}`}
                   title={t.deleteItem}
                   className="p-2 rounded-full text-slate-300 hover:text-red-400 hover:bg-white/10 transition-colors"
@@ -307,6 +289,22 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
           ))
         )}
       </div>
+
+      {/* Delete confirmation (per-item or clear-all) */}
+      {confirm && (
+        <ConfirmDialog
+          title={confirm.kind === 'all' ? t.clearHistory : t.deleteItem}
+          message={confirm.kind === 'all' ? t.confirmClearAll : t.confirmDeleteItem}
+          confirmLabel={confirm.kind === 'all' ? t.clearHistory : t.deleteItem}
+          cancelLabel={t.cancel}
+          onConfirm={() => {
+            if (confirm.kind === 'all') onClear();
+            else onDelete(confirm.item.id);
+            setConfirm(null);
+          }}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
     </div>
   );
 };

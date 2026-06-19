@@ -395,8 +395,10 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
       {/* Overlay Background Gradient */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none" />
 
-      {/* Card Content */}
-      <div className="relative pointer-events-auto w-full max-w-2xl mx-auto bg-slate-900/90 backdrop-blur-xl border-t sm:border border-slate-700/50 sm:rounded-3xl shadow-2xl overflow-hidden max-h-[85dvh] flex flex-col animate-slide-up">
+      {/* Card Content — on phones it fills most of the height (min-h) so there isn't a
+          big empty band between the header and the sheet on tall screens; on larger
+          screens it stays a centered, content-sized card. */}
+      <div className="relative pointer-events-auto w-full max-w-2xl mx-auto bg-slate-900/90 backdrop-blur-xl border-t sm:border border-slate-700/50 sm:rounded-3xl shadow-2xl overflow-hidden min-h-[82dvh] sm:min-h-0 max-h-[88dvh] sm:max-h-[85dvh] flex flex-col animate-slide-up">
         
         {/* Header Image/Title Area */}
         <div className="p-6 pb-2 shrink-0">

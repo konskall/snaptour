@@ -11,7 +11,7 @@ import { PassportView } from './components/PassportView';
 import { Toast, type ToastType } from './components/Toast';
 import { identifyLandmarkFromImage, getLandmarkDetails, generateNarrationAudio, getLandmarkInfo, getNearbyLandmarks } from './services/geminiService';
 import { getDeviceLocation, getExifGps } from './services/locationUtils';
-import { saveHistoryItem, getHistory, createThumbnail, createScaledImage, clearHistory, deleteHistoryItem, migrateLocalHistory, setFavorite } from './services/storageService';
+import { saveHistoryItem, subscribeHistory, createThumbnail, createScaledImage, clearHistory, deleteHistoryItem, migrateLocalHistory, setFavorite } from './services/storageService';
 import { fetchLandmarkImage } from './services/wikimediaService';
 import { auth, isFirebaseConfigured } from './services/firebase';
 import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
@@ -158,10 +158,14 @@ const App: React.FC = () => {
   }, []);
 
   // Subscribe to Firebase auth state (handles session persistence + redirect return)
+  const historyUnsubRef = useRef<null | (() => void)>(null);
   useEffect(() => {
     if (!auth) return;
     getRedirectResult(auth).catch(err => console.error('Redirect sign-in failed', err));
     const unsub = onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
+      // Tear down any previous user's live history subscription.
+      historyUnsubRef.current?.();
+      historyUnsubRef.current = null;
       if (fbUser) {
         const mapped: User = {
           uid: fbUser.uid,
@@ -171,13 +175,18 @@ const App: React.FC = () => {
         };
         setUser(mapped);
         await migrateLocalHistory(mapped.uid, mapped.email);
-        setUserHistory(await getHistory(mapped.uid));
+        // Live, cross-device history: updates here when this user scans on another device.
+        historyUnsubRef.current = subscribeHistory(mapped.uid, setUserHistory);
       } else {
         setUser(null);
         setUserHistory([]);
       }
     });
-    return () => unsub();
+    return () => {
+      unsub();
+      historyUnsubRef.current?.();
+      historyUnsubRef.current = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -512,7 +521,7 @@ const App: React.FC = () => {
 
   return (
     <div className="relative w-full overflow-hidden bg-slate-900 text-white" style={{ ...backgroundStyle, height: 'var(--app-height, 100vh)' }}>
-      {selectedImage && <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-all duration-1000" />}
+      {selectedImage && <div className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-all duration-1000" />}
 
       {/* In-app toast (replaces native alert) */}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}

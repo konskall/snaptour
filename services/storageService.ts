@@ -2,7 +2,7 @@ import { HistoryItem } from '../types';
 import { db } from './firebase';
 import { capItems, MAX_HISTORY_ITEMS } from './historyUtils';
 import {
-  collection, doc, getDocs, setDoc, updateDoc, deleteDoc, query, orderBy, limit, writeBatch, getCountFromServer,
+  collection, doc, getDocs, onSnapshot, setDoc, updateDoc, deleteDoc, query, orderBy, limit, writeBatch, getCountFromServer,
 } from 'firebase/firestore';
 
 // Firestore rejects `undefined` field values, so drop any before writing.
@@ -126,6 +126,29 @@ export async function getHistory(uid: string): Promise<HistoryItem[]> {
     console.error('getHistory failed; using cache', e);
     return readCache(uid);
   }
+}
+
+// Real-time subscription to the user's history so changes on one device appear on
+// another without a manual refresh. Calls `cb` with the latest items on every change
+// and keeps the local cache warm. Returns an unsubscribe function. With no backend
+// (guest / unconfigured), emits the local cache once and is a no-op thereafter.
+export function subscribeHistory(uid: string, cb: (items: HistoryItem[]) => void): () => void {
+  if (!db) {
+    cb(readCache(uid));
+    return () => {};
+  }
+  return onSnapshot(
+    query(historyCol(uid), orderBy('timestamp', 'desc')),
+    (snap) => {
+      const items = capItems(snap.docs.map((d) => d.data() as HistoryItem));
+      writeCache(uid, items);
+      cb(items);
+    },
+    (e) => {
+      console.error('history subscription failed; using cache', e);
+      cb(readCache(uid));
+    },
+  );
 }
 
 export async function saveHistoryItem(uid: string, item: HistoryItem): Promise<HistoryItem[]> {

@@ -122,6 +122,9 @@ export interface Translation {
   shareError: string;
   clearHistory: string;
   confirmClear: string;
+  confirmClearAll: string;
+  confirmDeleteItem: string;
+  cancel: string;
   deleteItem: string;
   featureScan: string;
   featureScanDesc: string;
