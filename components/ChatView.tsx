@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, X, Bot, User } from 'lucide-react';
+import { Send, X, Bot } from 'lucide-react';
 import { ChatMessage, Translation } from '../types';
 import { getChatResponse } from '../services/geminiService';
 import { useDialog } from '../hooks/useDialog';
@@ -143,7 +143,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
             <button
               onClick={handleSend}
               disabled={!input.trim() || isLoading}
-              aria-label="Send"
+              aria-label={t.send}
               className="w-12 h-12 rounded-full bg-indigo-600 disabled:bg-slate-700 disabled:text-slate-500 text-white flex items-center justify-center hover:bg-indigo-500 transition-colors"
             >
               <Send size={20} />

@@ -78,7 +78,6 @@ export enum AppState {
   ANALYZING_IMAGE = 'ANALYZING_IMAGE',
   SELECTING_LANDMARK = 'SELECTING_LANDMARK',
   FETCHING_DETAILS = 'FETCHING_DETAILS',
-  GENERATING_AUDIO = 'GENERATING_AUDIO',
   SHOWING_RESULT = 'SHOWING_RESULT',
   VIEWING_HISTORY = 'VIEWING_HISTORY',
   NEARBY = 'NEARBY',                 // "Near me now": landmarks around the user, no photo
@@ -96,7 +95,6 @@ export interface Translation {
   supports: string;
   analyzing: string;
   fetching: string;
-  generating: string;
   identifying_sub: string;
   error: string;
   quotaError: string;
@@ -119,20 +117,11 @@ export interface Translation {
   home: string;
   share: string;
   shareSuccess: string;
-  shareError: string;
   clearHistory: string;
-  confirmClear: string;
   confirmClearAll: string;
   confirmDeleteItem: string;
   cancel: string;
   deleteItem: string;
-  featureScan: string;
-  featureScanDesc: string;
-  featureLearn: string;
-  featureLearnDesc: string;
-  featureListen: string;
-  featureListenDesc: string;
-  recent: string;
   createdBy: string;
   disclaimer: string;
   // New features
@@ -143,7 +132,6 @@ export interface Translation {
   viewMap: string;
   close: string;
   inAppBrowserWarning: string;
-  signIn: string;
   dismiss: string;
   signInFailed: string;
   signInNotConfigured: string;
@@ -195,4 +183,10 @@ export interface Translation {
   unitM: string;
   unitKm: string;
   compass8: string[]; // [N, NE, E, SE, S, SW, W, NW] localized
+  // Localized accessible names for icon-only / brand controls
+  send: string;
+  hdVoice: string;
+  hdVoiceLoading: string;
+  hdVoicePause: string;
+  gpsTooltip: string;
 }

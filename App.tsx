@@ -11,12 +11,12 @@ import { PassportView } from './components/PassportView';
 import { Toast, type ToastType } from './components/Toast';
 import { identifyLandmarkFromImage, getLandmarkDetails, generateNarrationAudio, getLandmarkInfo, getNearbyLandmarks } from './services/geminiService';
 import { getDeviceLocation, getExifGps } from './services/locationUtils';
-import { saveHistoryItem, subscribeHistory, createThumbnail, createScaledImage, clearHistory, deleteHistoryItem, migrateLocalHistory, setFavorite } from './services/storageService';
+import { saveHistoryItem, subscribeHistory, createThumbnail, createScaledImage, clearHistory, deleteHistoryItem, migrateLocalHistory, setFavorite, clearCache } from './services/storageService';
 import { fetchLandmarkImage } from './services/wikimediaService';
 import { auth, isFirebaseConfigured } from './services/firebase';
 import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, browserPopupRedirectResolver, type User as FirebaseUser } from 'firebase/auth';
 import { AppState, AnalysisResult, LandmarkIdentification, LandmarkMeta, User, HistoryItem, NearbyPlace } from './types';
-import { Loader2, Globe, History, LogOut, Zap, AlertTriangle, ExternalLink, MapPinned, Award } from 'lucide-react';
+import { Loader2, History, LogOut, Zap, AlertTriangle, ExternalLink, MapPinned, Award } from 'lucide-react';
 import { Logo } from './components/Logo';
 import { LANGUAGES, translations } from './translations';
 
@@ -254,7 +254,10 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     setIsUserMenuOpen(false);
+    const uid = user?.uid; // capture before sign-out clears it
     try { if (auth) await signOut(auth); } catch (e) { console.error('Sign-out failed', e); }
+    // Drop the on-device history cache (PII) so it doesn't linger on a shared device.
+    if (uid) clearCache(uid);
     // onAuthStateChanged clears user + history; reset the view if needed
     if (state === AppState.VIEWING_HISTORY) setState(AppState.IDLE);
   };
@@ -412,7 +415,7 @@ const App: React.FC = () => {
     landmarkName: string,
     imageOverride?: string,
     scanCoords?: { lat: number; lng: number },
-    opts?: { save?: boolean },
+    opts?: { save?: boolean; deepLink?: boolean },
   ) => {
     try {
       setState(AppState.FETCHING_DETAILS);
@@ -423,7 +426,10 @@ const App: React.FC = () => {
       // For photo-less entries (Near me now / deep link) fetch a real representative
       // image so the result + history aren't bare. Runs in parallel with the grounded
       // calls, so it adds no latency (details is the long pole) and is best-effort.
-      const needsImage = !(imageOverride || selectedImage);
+      // Deep links must NOT reuse the ambient `selectedImage` (it may be a stale photo
+      // restored from the persisted view of the previous landmark), so ignore it here.
+      const ambientImage = opts?.deepLink ? null : selectedImage;
+      const needsImage = !(imageOverride || ambientImage);
 
       // Grounded narrative + structured "useful info" in parallel. Info is a non-grounded
       // call on a separate quota bucket and is best-effort — it never blocks the result.
@@ -447,7 +453,7 @@ const App: React.FC = () => {
 
       // Save when there's an image to attach (a photo scan) or when the caller asks
       // (e.g. a "Near me now" pick, which has no photo). Deep links don't save.
-      const imageToSave = imageOverride || selectedImage;
+      const imageToSave = imageOverride || ambientImage;
       if (user && (imageToSave || opts?.save)) {
         // User photos → downscaled base64 thumbnail; photo-less items → the Wikimedia
         // image URL (or '' → the designed placeholder in History).
@@ -496,7 +502,8 @@ const App: React.FC = () => {
     if (!landmark) return;
     deepLinkHandled.current = true;
     try { window.history.replaceState(null, '', window.location.pathname); } catch { /* ignore */ }
-    fetchDetails(landmark);
+    setSelectedImage(null); // drop any stale photo restored from the persisted view
+    fetchDetails(landmark, undefined, undefined, { deepLink: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -532,7 +539,7 @@ const App: React.FC = () => {
       {selectedImage && <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-all duration-1000" />}
 
       {/* In-app toast (replaces native alert) */}
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} closeLabel={t.close} />}
 
       {/* In-App Browser Warning Banner */}
       {isInAppBrowser && (
@@ -574,7 +581,7 @@ const App: React.FC = () => {
         <button
           type="button"
           onClick={resetApp}
-          aria-label="Go to home"
+          aria-label={t.home}
           className="flex items-center gap-2 pointer-events-auto cursor-pointer group"
         >
           <div className="bg-black/20 backdrop-blur-md p-2 rounded-2xl border border-white/10 shadow-lg group-hover:bg-white/10 transition-colors">

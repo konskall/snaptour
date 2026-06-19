@@ -8,6 +8,7 @@ interface ToastProps {
   type?: ToastType;
   onClose: () => void;
   duration?: number; // ms before auto-dismiss
+  closeLabel?: string; // localized accessible name for the close button
 }
 
 const STYLES: Record<ToastType, { Icon: React.ComponentType<{ size?: number; className?: string }>; accent: string; border: string }> = {
@@ -18,7 +19,7 @@ const STYLES: Record<ToastType, { Icon: React.ComponentType<{ size?: number; cla
 
 // In-app toast replacing native alert(). Slides in below the floating header,
 // auto-dismisses, and is announced to screen readers.
-export const Toast: React.FC<ToastProps> = ({ message, type = 'info', onClose, duration = 4500 }) => {
+export const Toast: React.FC<ToastProps> = ({ message, type = 'info', onClose, duration = 4500, closeLabel = 'Close' }) => {
   const { Icon, accent, border } = STYLES[type];
 
   useEffect(() => {
@@ -40,7 +41,7 @@ export const Toast: React.FC<ToastProps> = ({ message, type = 'info', onClose, d
         <p className="flex-1 min-w-0 text-sm font-medium text-slate-100 leading-snug">{message}</p>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={closeLabel}
           className="shrink-0 -mr-1 p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
         >
           <X size={16} />

@@ -262,7 +262,15 @@ export async function getChatResponse(landmarkName: string, history: ChatMessage
 }
 
 // 5. Get nearby places recommendations
+// In-memory cache keyed by landmark+language: TourCard refetches on every mount
+// (re-opening a saved item, deep link, after a chat round-trip), so without this the
+// same Gemini call fires repeatedly and burns quota.
+const nearbyCache = new Map<string, NearbyPlace[]>();
+
 export async function getNearbyPlaces(landmarkName: string, language: string): Promise<NearbyPlace[]> {
+  const cacheKey = `${landmarkName}|${language}`;
+  const cached = nearbyCache.get(cacheKey);
+  if (cached) return cached;
   try {
     const ai = await getAI();
     const { Type } = await loadSdk();
@@ -286,7 +294,9 @@ export async function getNearbyPlaces(landmarkName: string, language: string): P
     });
 
     if (response.text) {
-      return JSON.parse(response.text) as NearbyPlace[];
+      const places = JSON.parse(response.text) as NearbyPlace[];
+      nearbyCache.set(cacheKey, places);
+      return places;
     }
     return [];
   } catch (error) {

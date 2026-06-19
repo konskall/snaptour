@@ -103,14 +103,18 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   };
 
   useEffect(() => {
-    // Fetch nearby places when card loads
+    // Fetch nearby places when the card loads. Guarded so a slow response for a previous
+    // landmark/language can't overwrite the current one or setState after unmount.
+    let cancelled = false;
     const fetchNearby = async () => {
       setLoadingNearby(true);
       const places = await getNearbyPlaces(result.landmarkName, langName);
+      if (cancelled) return;
       setNearbyPlaces(places);
       setLoadingNearby(false);
     };
     fetchNearby();
+    return () => { cancelled = true; };
   }, [result.landmarkName, langName]);
 
   // Load installed system voices (populated asynchronously on some browsers) and
@@ -322,7 +326,9 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
     utteranceRef.current = null;
     if (activeEngine === 'native') setIsPlaying(false);
     // iOS: unlock the AudioContext inside the user gesture before any async wait.
-    unlockAudioContext();
+    // Guarded: if AudioContext construction throws (rare iOS states) it must not abort
+    // the handler — the HD path can still generate, and failure falls back to native.
+    try { unlockAudioContext(); } catch (e) { console.warn('Audio unlock failed', e); }
 
     if (result.audioBuffer) {
       if (isPlaying && activeEngine === 'ai') {
@@ -352,12 +358,27 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
     }
   }, [result.audioBuffer, isAudioLoading]);
 
+  // HD-voice generation failed → fall back to the instant browser voice. App.tsx sets
+  // result.nativeTTSFallback on failure; previously nothing read it, so nothing played
+  // and no error showed. This makes the "switching to Native TTS" intent actually happen.
+  useEffect(() => {
+    if (result.nativeTTSFallback && activeEngine === 'ai' && !result.audioBuffer && !isPlaying) {
+      setActiveEngine('native');
+      speakNative();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result.nativeTTSFallback]);
+
   // Clean up on unmount or when result changes
   useEffect(() => {
     return () => {
       stopAiAudio();
       if (audioContextRef.current) {
-        audioContextRef.current.close();
+        // close() rejects with InvalidStateError if already closing/closed (common on iOS
+        // after an interruption) — guard + swallow to avoid an unhandled rejection.
+        if (audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.close().catch(() => {});
+        }
         audioContextRef.current = null;
       }
       window.speechSynthesis.cancel();
@@ -449,7 +470,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
             <span className="text-xs font-bold tracking-wider truncate">{t.landmarkLabel}</span>
             {locatedByGps && (
               <span
-                title="Identified using your location"
+                title={t.gpsTooltip}
                 className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-full px-2 py-0.5 shrink-0"
               >
                 <LocateFixed size={11} />
@@ -492,9 +513,9 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
               <button
                 onClick={handleAiPlay}
                 disabled={isAudioLoading}
-                aria-label={isAudioLoading ? 'Loading HD voice' : (isPlaying && activeEngine === 'ai' ? 'Pause HD voice' : 'HD voice')}
+                aria-label={isAudioLoading ? t.hdVoiceLoading : (isPlaying && activeEngine === 'ai' ? t.hdVoicePause : t.hdVoice)}
                 aria-pressed={isPlaying && activeEngine === 'ai'}
-                title="HD voice (AI)"
+                title={t.hdVoice}
                 className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center border transition-all hover:scale-105 relative disabled:cursor-default ${
                   activeEngine === 'ai'
                     ? 'bg-purple-600 hover:bg-purple-500 text-white border-purple-400 shadow-lg shadow-purple-500/30'

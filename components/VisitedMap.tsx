@@ -79,8 +79,15 @@ const VisitedMap: React.FC<VisitedMapProps> = ({ items, onClose, onSelect, t }) 
       const el = document.createElement('div');
       el.className = 'st-pin-popup';
       el.style.cssText = 'cursor:pointer;width:160px;';
-      const thumb = p.item.thumbnail
-        ? `<img src="data:image/jpeg;base64,${p.item.thumbnail}" alt="" style="width:100%;height:84px;object-fit:cover;border-radius:8px;display:block;margin-bottom:6px;" />`
+      // Thumbnails are dual-format: a base64 blob (user photos) OR an absolute URL
+      // (Wikimedia image for photo-less "Near me now" items). Same branch the other
+      // consumers use (HistoryView / App.handleHistorySelect) — without it a URL would
+      // become a broken `src="data:image/jpeg;base64,https://…"`.
+      const thumbSrc = p.item.thumbnail
+        ? (p.item.thumbnail.includes('://') ? p.item.thumbnail : `data:image/jpeg;base64,${p.item.thumbnail}`)
+        : '';
+      const thumb = thumbSrc
+        ? `<img src="${thumbSrc.replace(/"/g, '&quot;')}" alt="" style="width:100%;height:84px;object-fit:cover;border-radius:8px;display:block;margin-bottom:6px;" />`
         : '';
       el.innerHTML = `${thumb}<div style="font-weight:700;font-size:13px;line-height:1.3;color:#0f172a;">${p.item.landmarkName.replace(/</g, '&lt;')}</div>`;
       el.addEventListener('click', () => onSelectRef.current(p.item));

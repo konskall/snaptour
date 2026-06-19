@@ -112,6 +112,13 @@ function writeCache(uid: string, items: HistoryItem[]): void {
   }
 }
 
+// Remove only the on-device cache for a user (base64 photo thumbnails + landmark
+// names/summaries/coords = PII). Call on sign-out so it doesn't linger on a shared
+// device. Does NOT touch Firestore (that's clearHistory, an explicit user action).
+export function clearCache(uid: string): void {
+  try { localStorage.removeItem(cacheKey(uid)); } catch { /* ignore */ }
+}
+
 // ---- Firestore ----
 const historyCol = (uid: string) => collection(db!, 'users', uid, 'history');
 
