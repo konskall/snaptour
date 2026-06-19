@@ -14,3 +14,14 @@ root.render(
     <App />
   </React.StrictMode>
 );
+
+// Register the service worker so the app shell loads offline (saved tours are read
+// from the local history cache with no network). Registered relative to the document,
+// so it resolves to <base>/sw.js with the correct scope on GitHub Pages. Best-effort.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch((err) => {
+      console.warn('Service worker registration failed', err);
+    });
+  });
+}

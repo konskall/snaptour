@@ -188,4 +188,11 @@ export interface Translation {
   removeFavorite: string;
   noResults: string;
   filterAll: string;
+  // Distance & directions (result card)
+  directions: string;
+  showDistance: string;
+  distanceUnavailable: string;
+  unitM: string;
+  unitKm: string;
+  compass8: string[]; // [N, NE, E, SE, S, SW, W, NW] localized
 }

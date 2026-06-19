@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Pause, ExternalLink, MapPin, Sparkles, Loader2, Share2, Check, MessageCircle, Map as MapIcon, Compass, ChevronDown, ChevronUp, Volume2, LocateFixed, SlidersHorizontal, Clock, Ticket, Tag, Sun, Globe } from 'lucide-react';
+import { Pause, ExternalLink, MapPin, Sparkles, Loader2, Share2, Check, MessageCircle, Map as MapIcon, Compass, ChevronDown, ChevronUp, Volume2, LocateFixed, SlidersHorizontal, Clock, Ticket, Tag, Sun, Globe, Navigation } from 'lucide-react';
 import { AnalysisResult, Translation, NearbyPlace } from '../types';
 import { getNearbyPlaces } from '../services/geminiService';
+import { getDeviceLocation } from '../services/locationUtils';
+import { haversineMeters, bearingDeg, cardinal8 } from '../services/geoUtils';
 
 interface TourCardProps {
   result: AnalysisResult;
@@ -24,6 +26,26 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
   const [isSourcesOpen, setIsSourcesOpen] = useState(false);
+
+  // Distance + direction to this landmark from the user's current position. We only
+  // auto-locate when geolocation permission is ALREADY granted (no surprise prompt on
+  // load); otherwise the user taps "Show distance". The "Directions" deep-link needs
+  // only the landmark's own coordinates.
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoState, setGeoState] = useState<'idle' | 'loading' | 'denied'>('idle');
+
+  const requestDistance = async () => {
+    setGeoState('loading');
+    const c = await getDeviceLocation();
+    if (c) { setUserCoords(c); setGeoState('idle'); }
+    else setGeoState('denied');
+  };
+
+  const formatDistance = (m: number) => {
+    if (m < 950) return `${Math.max(1, Math.round(m / 10) * 10)} ${t.unitM}`;
+    const km = m / 1000;
+    return `${km < 9.5 ? km.toFixed(1) : Math.round(km)} ${t.unitKm}`;
+  };
 
   // Native-voice controls: playback speed + which installed voice to use. Persisted
   // so a traveler's preference sticks across landmarks/sessions. Affects only the
@@ -353,6 +375,26 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
       utteranceRef.current = null;
   }, [result.landmarkName]);
 
+  // Reset distance state per landmark, then silently fetch it ONLY if geolocation
+  // permission was already granted (so we never trigger a permission prompt on load).
+  useEffect(() => {
+    setUserCoords(null);
+    setGeoState('idle');
+    if (result.meta?.lat == null || result.meta?.lng == null) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation || !navigator.permissions?.query) return;
+    let cancelled = false;
+    navigator.permissions.query({ name: 'geolocation' as PermissionName })
+      .then(async (status) => {
+        if (cancelled || status.state !== 'granted') return;
+        setGeoState('loading');
+        const c = await getDeviceLocation();
+        if (cancelled) return;
+        if (c) { setUserCoords(c); setGeoState('idle'); } else setGeoState('denied');
+      })
+      .catch(() => { /* permissions API unavailable → leave idle (tap to reveal) */ });
+    return () => { cancelled = true; };
+  }, [result.landmarkName, result.meta?.lat, result.meta?.lng]);
+
 
   const handleShare = async () => {
     // Share the SnapTour app URL (not a Maps link) so the rich link preview shows
@@ -597,6 +639,53 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                     </div>
                   ))}
                 </dl>
+              </div>
+            );
+          })()}
+
+          {/* Distance + direction to here, and a Directions deep-link. Shown whenever we
+              know the landmark's coordinates. Distance/direction appear once we have the
+              user's location (granted silently or via the "Show distance" tap). */}
+          {(() => {
+            const lat = result.meta?.lat, lng = result.meta?.lng;
+            if (lat == null || lng == null) return null;
+            const dirUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+            let distEl: React.ReactNode;
+            if (userCoords) {
+              const m = haversineMeters(userCoords, { lat, lng });
+              const dir = t.compass8[cardinal8(bearingDeg(userCoords, { lat, lng }))];
+              distEl = (
+                <span className="text-slate-200 truncate">
+                  <span className="font-semibold">{formatDistance(m)}</span>
+                  <span className="text-slate-400"> · {dir}</span>
+                </span>
+              );
+            } else if (geoState === 'loading') {
+              distEl = <span className="text-slate-400 inline-flex items-center gap-1.5"><Loader2 size={14} className="animate-spin" />…</span>;
+            } else if (geoState === 'denied') {
+              distEl = <span className="text-slate-500 text-xs">{t.distanceUnavailable}</span>;
+            } else {
+              distEl = (
+                <button onClick={requestDistance} className="text-indigo-300 hover:text-indigo-200 underline underline-offset-2 decoration-indigo-400/40">
+                  {t.showDistance}
+                </button>
+              );
+            }
+            return (
+              <div className="flex items-center justify-between gap-3 bg-slate-800/30 rounded-xl p-3 border border-slate-700/30">
+                <div className="min-w-0 flex items-center gap-2 text-sm">
+                  <Compass size={16} className="text-emerald-400 shrink-0" />
+                  {distEl}
+                </div>
+                <a
+                  href={dirUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors"
+                >
+                  <Navigation size={15} />
+                  {t.directions}
+                </a>
               </div>
             );
           })()}

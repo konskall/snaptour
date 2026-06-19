@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getContinent, itemCoords, buildPassport } from '../geoUtils';
+import { getContinent, itemCoords, buildPassport, haversineMeters, bearingDeg, cardinal8 } from '../geoUtils';
 import type { HistoryItem, LandmarkMeta } from '../../types';
 
 const meta = (over: Partial<LandmarkMeta>): LandmarkMeta => ({
@@ -40,6 +40,42 @@ describe('itemCoords', () => {
   it('returns null when no coords are available', () => {
     expect(itemCoords(mk('1'))).toBeNull();
     expect(itemCoords(mk('1', { info: meta({}) }))).toBeNull();
+  });
+});
+
+describe('haversineMeters', () => {
+  it('is zero for the same point', () => {
+    expect(haversineMeters({ lat: 48.8584, lng: 2.2945 }, { lat: 48.8584, lng: 2.2945 })).toBeCloseTo(0, 5);
+  });
+  it('matches the known Paris→London great-circle distance (~344 km)', () => {
+    const d = haversineMeters({ lat: 48.8566, lng: 2.3522 }, { lat: 51.5074, lng: -0.1278 });
+    expect(d / 1000).toBeGreaterThan(340);
+    expect(d / 1000).toBeLessThan(348);
+  });
+  it('computes a short distance reasonably (~111 m per 0.001° of latitude)', () => {
+    const d = haversineMeters({ lat: 0, lng: 0 }, { lat: 0.001, lng: 0 });
+    expect(d).toBeGreaterThan(108);
+    expect(d).toBeLessThan(114);
+  });
+});
+
+describe('bearingDeg', () => {
+  it('points due East / North / South / West', () => {
+    expect(bearingDeg({ lat: 0, lng: 0 }, { lat: 0, lng: 1 })).toBeCloseTo(90, 1);   // E
+    expect(bearingDeg({ lat: 0, lng: 0 }, { lat: 1, lng: 0 })).toBeCloseTo(0, 1);    // N
+    expect(bearingDeg({ lat: 1, lng: 0 }, { lat: 0, lng: 0 })).toBeCloseTo(180, 1);  // S
+    expect(bearingDeg({ lat: 0, lng: 1 }, { lat: 0, lng: 0 })).toBeCloseTo(270, 1);  // W
+  });
+});
+
+describe('cardinal8', () => {
+  it('maps bearings to the 8-point index (0=N … 7=NW), wrapping near 360', () => {
+    expect(cardinal8(0)).toBe(0);    // N
+    expect(cardinal8(45)).toBe(1);   // NE
+    expect(cardinal8(90)).toBe(2);   // E
+    expect(cardinal8(200)).toBe(4);  // ~S
+    expect(cardinal8(350)).toBe(0);  // wraps back to N
+    expect(cardinal8(315)).toBe(7);  // NW
   });
 });
 

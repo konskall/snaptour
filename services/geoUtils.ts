@@ -54,6 +54,43 @@ export function itemCoords(item: HistoryItem): { lat: number; lng: number } | nu
   return { lat, lng };
 }
 
+// ---- Distance / direction between two coordinates (great-circle) ----
+// Used by the result card to show "you're ~350 m away · NE". Pure + unit-tested.
+
+const EARTH_RADIUS_M = 6371000;
+const toRad = (deg: number) => (deg * Math.PI) / 180;
+
+export interface LatLng { lat: number; lng: number; }
+
+// Great-circle distance in METERS between two points (Haversine).
+export function haversineMeters(a: LatLng, b: LatLng): number {
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+// Initial bearing from `a` to `b` in degrees, normalized to [0, 360) (0 = North,
+// 90 = East). Meaningful as a general "which way" cue, not a phone-heading compass.
+export function bearingDeg(a: LatLng, b: LatLng): number {
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+// Bearing → 8-point compass index (0 = N, 1 = NE, … 7 = NW), for the localized
+// `compass8` label arrays.
+export function cardinal8(bearing: number): number {
+  return Math.round((((bearing % 360) + 360) % 360) / 45) % 8;
+}
+
 export interface CountryStamp {
   code: string;   // ISO alpha-2 (for the flag), "" if unknown
   name: string;   // localized display name (most recent wins)
