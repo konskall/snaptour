@@ -1,5 +1,10 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth } from 'firebase/auth';
+import {
+  initializeAuth,
+  indexedDBLocalPersistence,
+  browserLocalPersistence,
+  type Auth,
+} from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 
 const config = {
@@ -21,7 +26,15 @@ let db: Firestore | null = null;
 
 if (isFirebaseConfigured()) {
   app = initializeApp(config);
-  auth = getAuth(app);
+  // initializeAuth (not getAuth) WITHOUT a popupRedirectResolver. getAuth() eagerly wires
+  // the popup/redirect resolver, which pulls firebaseapp.com/__/auth/iframe.js (~90 KiB)
+  // + getProjectConfig into the initial-load critical path on EVERY visit. We keep the same
+  // browser persistence (indexedDB → localStorage) so existing sessions are still restored,
+  // and pass browserPopupRedirectResolver explicitly only at the sign-in / redirect-return
+  // call sites (see App.tsx) so the iframe loads on demand, not at startup.
+  auth = initializeAuth(app, {
+    persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+  });
   db = getFirestore(app);
 }
 

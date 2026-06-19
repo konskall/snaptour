@@ -14,7 +14,7 @@ import { getDeviceLocation, getExifGps } from './services/locationUtils';
 import { saveHistoryItem, subscribeHistory, createThumbnail, createScaledImage, clearHistory, deleteHistoryItem, migrateLocalHistory, setFavorite } from './services/storageService';
 import { fetchLandmarkImage } from './services/wikimediaService';
 import { auth, isFirebaseConfigured } from './services/firebase';
-import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, browserPopupRedirectResolver, type User as FirebaseUser } from 'firebase/auth';
 import { AppState, AnalysisResult, LandmarkIdentification, LandmarkMeta, User, HistoryItem, NearbyPlace } from './types';
 import { Loader2, Globe, History, LogOut, Zap, AlertTriangle, ExternalLink, MapPinned, Award } from 'lucide-react';
 import { Logo } from './components/Logo';
@@ -161,7 +161,13 @@ const App: React.FC = () => {
   const historyUnsubRef = useRef<null | (() => void)>(null);
   useEffect(() => {
     if (!auth) return;
-    getRedirectResult(auth).catch(err => console.error('Redirect sign-in failed', err));
+    // Only finish a redirect sign-in if we actually started one (set right before
+    // signInWithRedirect). This keeps the popup/redirect resolver iframe off the normal
+    // load path; onAuthStateChanged alone restores a persisted session without it.
+    if (sessionStorage.getItem('st_redirecting')) {
+      sessionStorage.removeItem('st_redirecting');
+      getRedirectResult(auth, browserPopupRedirectResolver).catch(err => console.error('Redirect sign-in failed', err));
+    }
     const unsub = onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
       // Tear down any previous user's live history subscription.
       historyUnsubRef.current?.();
@@ -233,10 +239,12 @@ const App: React.FC = () => {
     // Always show the Google account chooser, so logout -> login can pick a different account
     provider.setCustomParameters({ prompt: 'select_account' });
     try {
+      // Pass the resolver explicitly (auth was initialized without one — see services/firebase.ts).
       if (isInAppBrowser) {
-        await signInWithRedirect(auth, provider); // popups blocked in in-app browsers
+        sessionStorage.setItem('st_redirecting', '1'); // so we run getRedirectResult on return
+        await signInWithRedirect(auth, provider, browserPopupRedirectResolver); // popups blocked in in-app browsers
       } else {
-        await signInWithPopup(auth, provider);    // onAuthStateChanged handles the rest
+        await signInWithPopup(auth, provider, browserPopupRedirectResolver);    // onAuthStateChanged handles the rest
       }
     } catch (err) {
       console.error('Google sign-in failed', err);
