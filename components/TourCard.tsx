@@ -395,10 +395,8 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
       {/* Overlay Background Gradient */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none" />
 
-      {/* Card Content — on phones it fills most of the height (min-h) so there isn't a
-          big empty band between the header and the sheet on tall screens; on larger
-          screens it stays a centered, content-sized card. */}
-      <div className="relative pointer-events-auto w-full max-w-2xl mx-auto bg-slate-900/90 backdrop-blur-xl border-t sm:border border-slate-700/50 sm:rounded-3xl shadow-2xl overflow-hidden min-h-[82dvh] sm:min-h-0 max-h-[88dvh] sm:max-h-[85dvh] flex flex-col animate-slide-up">
+      {/* Card Content */}
+      <div className="relative pointer-events-auto w-full max-w-2xl mx-auto bg-slate-900/90 backdrop-blur-xl border-t sm:border border-slate-700/50 sm:rounded-3xl shadow-2xl overflow-hidden max-h-[85dvh] flex flex-col animate-slide-up">
         
         {/* Header Image/Title Area */}
         <div className="p-6 pb-2 shrink-0">
@@ -711,8 +709,9 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-4 pb-safe-sheet border-t border-slate-800 bg-slate-900/50 backdrop-blur-sm flex gap-2.5 shrink-0">
+        {/* Footer Actions — solid app colour (not translucent) so the bottom edge that
+            Safari tints its toolbar from is the app colour, never black. */}
+        <div className="p-4 pb-safe-sheet border-t border-slate-800 bg-slate-900 flex gap-2.5 shrink-0">
            <button onClick={handleShare} className="flex-1 py-2.5 px-4 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold transition-colors flex items-center justify-center gap-2 border border-slate-700">
             {justShared ? <Check size={16} className="text-green-400" /> : <Share2 size={16} />}
             <span>{justShared ? t.shareSuccess : t.share}</span>

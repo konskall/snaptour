@@ -521,7 +521,7 @@ const App: React.FC = () => {
 
   return (
     <div className="relative w-full overflow-hidden bg-slate-900 text-white" style={{ ...backgroundStyle, height: 'var(--app-height, 100vh)' }}>
-      {selectedImage && <div className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-all duration-1000" />}
+      {selectedImage && <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-all duration-1000" />}
 
       {/* In-app toast (replaces native alert) */}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
