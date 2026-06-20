@@ -195,23 +195,6 @@ const App: React.FC = () => {
     return () => window.clearTimeout(tid);
   }, []);
 
-  // Warm Firebase's popup/redirect resolver during idle. `auth` is initialized WITHOUT a resolver
-  // to keep iframe.js off the critical load path (see services/firebase.ts), so it would otherwise
-  // load lazily on the first sign-in tap. On iOS Safari / standalone PWA, window.open() is only
-  // honoured synchronously inside the tap — if the iframe still has to be fetched first, the gesture
-  // expires and iOS blocks the popup, which is why login used to need a SECOND tap. Pre-loading the
-  // resolver here (off the critical path) lets the first real tap open the popup synchronously.
-  useEffect(() => {
-    if (!auth) return;
-    if (sessionStorage.getItem('st_redirecting')) return; // the redirect-return effect inits it instead
-    let cancelled = false;
-    const warm = () => { if (!cancelled && auth) getRedirectResult(auth, browserPopupRedirectResolver).catch(() => {}); };
-    const ric = (window as any).requestIdleCallback as undefined | ((cb: () => void) => number);
-    if (ric) { const id = ric(warm); return () => { cancelled = true; (window as any).cancelIdleCallback?.(id); }; }
-    const tid = window.setTimeout(warm, 2500);
-    return () => { cancelled = true; window.clearTimeout(tid); };
-  }, []);
-
   // Subscribe to Firebase auth state (handles session persistence + redirect return)
   const historyUnsubRef = useRef<null | (() => void)>(null);
   useEffect(() => {
@@ -298,9 +281,12 @@ const App: React.FC = () => {
     provider.setCustomParameters({ prompt: 'select_account' });
     try {
       // Pass the resolver explicitly (auth was initialized without one — see services/firebase.ts).
-      if (isInAppBrowser) {
+      // iOS Safari (and iOS WebViews) OPEN the popup but, with a cross-domain authDomain, can't
+      // deliver its result back to the page ("popup opens, then nothing → still logged out").
+      // Use a full-page redirect on iOS (and in-app browsers); popup is reliable on desktop & Android.
+      if (isInAppBrowser || inAppInfo.isIOS) {
         sessionStorage.setItem('st_redirecting', '1'); // so we run getRedirectResult on return
-        await signInWithRedirect(auth, provider, browserPopupRedirectResolver); // popups blocked in in-app browsers
+        await signInWithRedirect(auth, provider, browserPopupRedirectResolver);
       } else {
         await signInWithPopup(auth, provider, browserPopupRedirectResolver);    // onAuthStateChanged handles the rest
       }
