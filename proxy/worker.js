@@ -48,17 +48,23 @@ async function verifyFirebaseToken(token, projectId) {
 
 function corsHeaders(req, allowed) {
   const origin = req.headers.get('Origin') || '';
-  const allow = allowed.length === 0 || allowed.includes(origin) ? (origin || '*') : allowed[0];
-  // Reflect whatever headers the SDK asks for (x-goog-api-key, x-goog-api-client, authorization, …).
-  const reqHdrs = req.headers.get('Access-Control-Request-Headers')
-    || 'authorization, content-type, x-goog-api-key, x-goog-api-client';
-  return {
-    'Access-Control-Allow-Origin': allow,
+  const headers = {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': reqHdrs,
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
+  // Fail-CLOSED: only emit Allow-Origin for an explicitly-allowed origin. If ALLOWED_ORIGINS
+  // is unset/empty, nothing matches → no CORS header → browsers from any origin are blocked.
+  if (origin && allowed.includes(origin)) {
+    headers['Access-Control-Allow-Origin'] = origin;
+    // Reflect the headers the SDK asks for (x-goog-api-key, x-goog-api-client, authorization, …)
+    // so we stay robust to SDK header changes. Returned ONLY for an allowed origin, so there is
+    // no cross-origin abuse surface (the real gate is the Allow-Origin match + the token check).
+    headers['Access-Control-Allow-Headers'] =
+      req.headers.get('Access-Control-Request-Headers')
+      || 'authorization, content-type, x-goog-api-key, x-goog-api-client';
+  }
+  return headers;
 }
 
 export default {

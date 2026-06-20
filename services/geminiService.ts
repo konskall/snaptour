@@ -23,10 +23,16 @@ const getAI = async (): Promise<GoogleGenAI> => {
   const { GoogleGenAI } = await loadSdk();
 
   // Proxy mode: the real key lives in the Cloudflare Worker. We point the SDK at the Worker
-  // (baseUrl) and attach a fresh Firebase ID token; the Worker verifies it and injects the
-  // real key. Not cached — a fresh instance per call keeps the (hourly) token current.
+  // (baseUrl) and attach a Firebase ID token. A fresh GoogleGenAI per call (not cached) means
+  // the Authorization header always carries a current token — Firebase auto-refreshes it near
+  // its ~1h expiry inside getIdToken(), so it never goes stale between calls.
   if (PROXY_URL) {
     const token = await getProxyAuthToken();
+    if (!token) {
+      // No token → the Worker will reject with 401. Almost always a setup issue: enable
+      // Anonymous sign-in in the Firebase console (Auth → Sign-in method → Anonymous).
+      console.error('Proxy mode: could not obtain a Firebase ID token; Gemini calls will be rejected (401). Is Anonymous Auth enabled in Firebase?');
+    }
     return new GoogleGenAI({
       apiKey: 'proxied', // placeholder; ignored by the Worker, which uses the real key
       httpOptions: {
