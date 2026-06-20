@@ -13,12 +13,27 @@ export function buildShareUrl(landmarkName: string): string {
   return `${window.location.origin}${window.location.pathname}?l=${enc}`;
 }
 
+// In-session cache of minted short URLs, keyed by landmark name. The Worker's /shorten is
+// idempotent (deterministic code), so this just spares repeat round-trips and — crucially —
+// lets a share handler read a ready short URL SYNCHRONOUSLY (iOS needs navigator.share to fire
+// inside the tap gesture, with no awaiting). Pre-warm with prewarmShortUrls(), read with
+// getCachedShortUrl(), and the per-name in-flight set prevents duplicate concurrent mints.
+const shortUrlCache = new Map<string, string>();
+const shortUrlInFlight = new Set<string>();
+
+// Synchronous read of an already-minted short URL (or null if not minted yet). Safe to call
+// inside a tap handler — no await, so it never breaks the iOS share gesture.
+export function getCachedShortUrl(landmarkName: string): string | null {
+  return shortUrlCache.get(landmarkName) || null;
+}
+
 // Mints a SHORT share URL (…/s/<code>) via the Worker's /shorten endpoint, so the shared link
 // isn't a long percent-encoded landmark name. Returns null on any failure (no proxy, no token,
 // KV not configured, network error) — callers then fall back to buildShareUrl()'s long form.
-// Pre-call this when a result is shown so the short URL is ready synchronously at share time
-// (iOS requires navigator.share to fire inside the tap gesture — no awaiting at tap time).
+// Pre-call this when a result is shown so the short URL is ready synchronously at share time.
 export async function mintShortShareUrl(landmarkName: string): Promise<string | null> {
+  const cached = shortUrlCache.get(landmarkName);
+  if (cached) return cached;
   const proxy = (process.env.GEMINI_PROXY_URL || '').replace(/\/+$/, '');
   if (!proxy) return null;
   try {
@@ -31,8 +46,23 @@ export async function mintShortShareUrl(landmarkName: string): Promise<string | 
     });
     if (!res.ok) return null;
     const data = await res.json();
-    return data && data.code ? `${proxy}/s/${data.code}` : null;
+    if (!data || !data.code) return null;
+    const url = `${proxy}/s/${data.code}`;
+    shortUrlCache.set(landmarkName, url);
+    return url;
   } catch {
     return null;
+  }
+}
+
+// Fire-and-forget pre-minting of short URLs for a batch of landmarks (e.g. the visible history
+// list), so each item's short URL is cached and ready when its share button is tapped. Already
+// cached or in-flight names are skipped, so this is cheap to call on every render. The browser's
+// per-host connection cap naturally throttles the burst.
+export function prewarmShortUrls(landmarkNames: string[]): void {
+  for (const name of landmarkNames) {
+    if (!name || shortUrlCache.has(name) || shortUrlInFlight.has(name)) continue;
+    shortUrlInFlight.add(name);
+    mintShortShareUrl(name).finally(() => shortUrlInFlight.delete(name));
   }
 }

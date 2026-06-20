@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { HistoryItem, LandmarkMeta, Translation } from '../types';
 import { Calendar, MapPin, Home, Trash2, Share2, Check, Search, Star, Landmark } from 'lucide-react';
 import { gradientFor } from '../services/placeholderUtils';
-import { buildShareUrl } from '../services/shareCardUtils';
+import { buildShareUrl, mintShortShareUrl, getCachedShortUrl, prewarmShortUrls } from '../services/shareCardUtils';
 import { ConfirmDialog } from './ConfirmDialog';
 
 interface HistoryViewProps {
@@ -91,11 +91,24 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
     });
   }, [items, search, country, type, favOnly]);
 
+  // Pre-mint SHORT share URLs (…/s/<code>) for the saved landmarks, so a tapped share button has
+  // its short URL ready synchronously (iOS needs navigator.share inside the tap gesture). The
+  // Worker's /shorten is idempotent + the util caches, so this is cheap to re-run on every change.
+  useEffect(() => {
+    prewarmShortUrls(items.map(i => i.landmarkName));
+  }, [items]);
+
   // Share a saved landmark — the LINK only (the Worker /s endpoint renders a per-landmark
   // Open Graph preview on the recipient's side). Only the landmark id travels in the URL, so
   // the recipient opens it in their own language. Desktop copies the link.
   const handleShare = async (item: HistoryItem) => {
-    const shareUrl = buildShareUrl(item.landmarkName);
+    const isTouch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+    // Prefer the short URL. On touch we can only use a PRE-MINTED (cached) one — navigator.share
+    // must fire synchronously in the tap, with no awaiting — else fall back to the long link. On
+    // desktop (copy) there's no gesture constraint, so we can await a fresh mint.
+    let shareUrl = getCachedShortUrl(item.landmarkName);
+    if (!shareUrl && !isTouch) shareUrl = await mintShortShareUrl(item.landmarkName);
+    if (!shareUrl) shareUrl = buildShareUrl(item.landmarkName);
     const text = t.shareText.replace('{name}', item.landmarkName);
 
     const copyLink = async () => {
@@ -106,7 +119,6 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
       } catch { /* clipboard unavailable */ }
     };
 
-    const isTouch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
     if (isTouch && navigator.share) {
       try { await navigator.share({ title: item.landmarkName, text, url: shareUrl }); return; }
       catch (err) { if ((err as { name?: string })?.name === 'AbortError') return; }

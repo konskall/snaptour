@@ -134,16 +134,18 @@ async function handleShare(url, req, env) {
   });
 }
 
-// Short-link minter: stores a random code → {name, hl} in KV so a shared URL is tiny
-// (…/s/<code>) instead of carrying a long percent-encoded landmark name. Requires a valid
-// Firebase token (our app's users) to prevent abuse. If no KV is bound, returns 503 so the
+// Short-link minter: maps a landmark to a tiny code so a shared URL is small (…/s/<code>)
+// instead of a long percent-encoded name. The code is DETERMINISTIC (a hash of name+hl), so
+// re-minting the same landmark always yields the same code — the write is idempotent and KV
+// never fills with duplicate codes (so it's safe to pre-mint a whole history list). Requires a
+// valid Firebase token (our app's users) to prevent abuse. If no KV is bound, returns 503 so the
 // app gracefully falls back to the long /s?l= URL.
-function randomCode(n) {
-  const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  const bytes = new Uint8Array(n);
-  crypto.getRandomValues(bytes);
+const CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+async function codeFor(name, hl) {
+  const data = new TextEncoder().encode(`${name}\n${hl || ''}`);
+  const buf = new Uint8Array(await crypto.subtle.digest('SHA-256', data));
   let s = '';
-  for (let i = 0; i < n; i++) s += ALPHABET[bytes[i] % ALPHABET.length];
+  for (let i = 0; i < 8; i++) s += CODE_ALPHABET[buf[i] % 62]; // 8 base62 chars ≈ 48 bits — collision-safe at this scale
   return s;
 }
 
@@ -160,9 +162,13 @@ async function handleShorten(req, env, cors) {
   const name = (body.name || '').toString().slice(0, 200);
   if (!name) return json({ error: 'Missing name' }, 400);
   const hl = (body.hl || '').toString().slice(0, 5);
-  const code = randomCode(7);
-  // Codes auto-expire after a year so KV never grows unbounded (it's tiny anyway).
-  await env.LINKS.put(code, JSON.stringify({ name, hl }), { expirationTtl: 60 * 60 * 24 * 365 });
+  const code = await codeFor(name, hl);
+  // Idempotent: only write when this code isn't already stored, so re-minting the same landmark
+  // (e.g. pre-minting a history list) costs a read, not a write. Codes auto-expire after a year
+  // so KV never grows unbounded (a re-mint after expiry simply re-creates the same code).
+  if (!(await env.LINKS.get(code))) {
+    await env.LINKS.put(code, JSON.stringify({ name, hl }), { expirationTtl: 60 * 60 * 24 * 365 });
+  }
   return json({ code }, 200);
 }
 
