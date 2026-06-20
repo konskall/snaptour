@@ -192,4 +192,5 @@ export interface Translation {
   loading: string;
   filterByCountry: string;
   filterByType: string;
+  or: string;
 }

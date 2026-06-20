@@ -50,8 +50,10 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, onNearMe,
       {/* Card area — centered in the available vertical space */}
       <div className="flex-1 flex flex-col items-center justify-center w-full">
 
-      {/* Main Content Card */}
-      <div className="relative z-10 max-w-md w-full bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 shadow-2xl">
+      {/* Main Content Card — premium glass over a soft brand glow */}
+      <div className="relative z-10 max-w-md w-full">
+        <div aria-hidden="true" className="absolute -inset-3 rounded-[2rem] bg-gradient-to-br from-indigo-500/25 via-cyan-400/10 to-transparent blur-2xl pointer-events-none" />
+        <div className="relative bg-slate-900/55 backdrop-blur-2xl border border-white/10 ring-1 ring-white/5 rounded-[1.75rem] p-8 shadow-2xl">
         <div className="text-center mb-8">
           {/* Hero: the branded camera artwork over a soft colour glow that echoes its palette. */}
           <div className="relative mx-auto mb-4" style={{ width: 168, height: 128 }}>
@@ -98,7 +100,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, onNearMe,
             />
             <label 
               htmlFor="cameraInput"
-              className="w-full cursor-pointer flex items-center justify-center gap-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg shadow-indigo-500/25 border border-indigo-400"
+              className="sheen w-full cursor-pointer flex items-center justify-center gap-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg shadow-indigo-500/30 border border-indigo-400/50"
             >
               <Camera size={20} />
               <span>{t.cameraBtn}</span>
@@ -111,7 +113,11 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, onNearMe,
           <div className="relative">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="w-full group/btn relative flex items-center justify-center gap-3 bg-slate-700/80 hover:bg-slate-600/80 text-slate-200 font-semibold py-4 px-6 rounded-xl transition-all duration-300 border border-indigo-500/30 hover:border-indigo-500/50"
+              className={`w-full group/btn flex items-center justify-center gap-3 font-semibold py-4 px-6 rounded-xl transition-all duration-300 ${
+                isCoarsePointer
+                  ? 'bg-slate-700/80 hover:bg-slate-600/80 text-slate-200 border border-indigo-500/30 hover:border-indigo-500/50'
+                  : 'sheen bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-500/30 border border-indigo-400/50 transform hover:scale-[1.02]'
+              }`}
             >
               <Upload size={20} className="group-hover:-translate-y-0.5 transition-transform" />
               <span>{t.uploadBtn}</span>
@@ -125,13 +131,17 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, onNearMe,
             />
           </div>
 
-          {/* Divider between photo-based and location-based discovery */}
-          <div className="h-px bg-white/10" />
+          {/* Elegant "or" divider between photo and location discovery */}
+          <div className="flex items-center gap-3 text-[11px] uppercase tracking-widest text-slate-500">
+            <span className="h-px flex-1 bg-white/10" />
+            {t.or}
+            <span className="h-px flex-1 bg-white/10" />
+          </div>
 
           {/* "Near me now" — discover landmarks around the user without a photo */}
           <button
             onClick={onNearMe}
-            className="w-full group/near relative flex items-center justify-center gap-3 bg-slate-700/60 hover:bg-slate-600/70 text-slate-200 font-semibold py-4 px-6 rounded-xl transition-all duration-300 border border-emerald-500/30 hover:border-emerald-500/50"
+            className="w-full group/near flex items-center justify-center gap-3 bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-200 font-semibold py-4 px-6 rounded-xl transition-all duration-300 border border-emerald-500/30 hover:border-emerald-500/50"
           >
             <LocateFixed size={20} className="text-emerald-400 group-hover/near:scale-110 transition-transform" />
             <span>{t.nearMeBtn}</span>
@@ -142,6 +152,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, onNearMe,
         <div className="mt-4 pt-6 border-t border-white/15 flex items-center justify-center gap-2 text-xs text-slate-400">
           <ImageIcon size={14} />
           <span>{t.supports}</span>
+        </div>
         </div>
       </div>
       </div>

@@ -105,6 +105,7 @@ export const translations: Record<string, Translation> = {
     loading: "Loading…",
     filterByCountry: "Filter by country",
     filterByType: "Filter by type",
+    or: "or",
     listen: "Listen",
     pause: "Pause"
   },
@@ -202,6 +203,7 @@ export const translations: Record<string, Translation> = {
     loading: "Cargando…",
     filterByCountry: "Filtrar por país",
     filterByType: "Filtrar por tipo",
+    or: "o",
     listen: "Escuchar",
     pause: "Pausa"
   },
@@ -299,6 +301,7 @@ export const translations: Record<string, Translation> = {
     loading: "Chargement…",
     filterByCountry: "Filtrer par pays",
     filterByType: "Filtrer par type",
+    or: "ou",
     listen: "Écouter",
     pause: "Pause"
   },
@@ -396,6 +399,7 @@ export const translations: Record<string, Translation> = {
     loading: "Wird geladen…",
     filterByCountry: "Nach Land filtern",
     filterByType: "Nach Typ filtern",
+    or: "oder",
     listen: "Anhören",
     pause: "Pause"
   },
@@ -493,6 +497,7 @@ export const translations: Record<string, Translation> = {
     loading: "加载中…",
     filterByCountry: "按国家筛选",
     filterByType: "按类型筛选",
+    or: "或",
     listen: "收听",
     pause: "暂停"
   },
@@ -590,6 +595,7 @@ export const translations: Record<string, Translation> = {
     loading: "लोड हो रहा है…",
     filterByCountry: "देश के अनुसार छाँटें",
     filterByType: "प्रकार के अनुसार छाँटें",
+    or: "या",
     listen: "सुनें",
     pause: "रोकें"
   },
@@ -687,6 +693,7 @@ export const translations: Record<string, Translation> = {
     loading: "Φόρτωση…",
     filterByCountry: "Φίλτρο ανά χώρα",
     filterByType: "Φίλτρο ανά τύπο",
+    or: "ή",
     listen: "Άκου",
     pause: "Παύση"
   }
