@@ -78,8 +78,18 @@ async function wikiImage(name) {
 
 async function handleShare(url, req, env) {
   const appBase = env.APP_URL || DEFAULT_APP_URL;
-  const name = (url.searchParams.get('l') || '').slice(0, 200);
-  const hl = (url.searchParams.get('hl') || '').slice(0, 5);
+  // /s/<code> → resolve the landmark from KV (short links). /s?l=<name> → name in the query
+  // (fallback / old links). If KV isn't configured, the /s/<code> form just yields an empty name.
+  let name = '';
+  let hl = '';
+  const codeMatch = url.pathname.match(/^\/s\/([A-Za-z0-9_-]{1,32})$/);
+  if (codeMatch && env.LINKS) {
+    const raw = await env.LINKS.get(codeMatch[1]);
+    if (raw) { try { const o = JSON.parse(raw); name = (o.name || '').slice(0, 200); hl = (o.hl || '').slice(0, 5); } catch { /* ignore */ } }
+  } else {
+    name = (url.searchParams.get('l') || '').slice(0, 200);
+    hl = (url.searchParams.get('hl') || '').slice(0, 5);
+  }
 
   // The app deep link the recipient ultimately opens.
   const dest = new URL(appBase);
@@ -124,6 +134,38 @@ async function handleShare(url, req, env) {
   });
 }
 
+// Short-link minter: stores a random code → {name, hl} in KV so a shared URL is tiny
+// (…/s/<code>) instead of carrying a long percent-encoded landmark name. Requires a valid
+// Firebase token (our app's users) to prevent abuse. If no KV is bound, returns 503 so the
+// app gracefully falls back to the long /s?l= URL.
+function randomCode(n) {
+  const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const bytes = new Uint8Array(n);
+  crypto.getRandomValues(bytes);
+  let s = '';
+  for (let i = 0; i < n; i++) s += ALPHABET[bytes[i] % ALPHABET.length];
+  return s;
+}
+
+async function handleShorten(req, env, cors) {
+  const json = (obj, status) => new Response(JSON.stringify(obj), {
+    status, headers: { ...cors, 'Content-Type': 'application/json' },
+  });
+  if (!env.LINKS) return json({ error: 'KV not configured' }, 503); // app falls back to the long URL
+  const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  const uid = token ? await verifyFirebaseToken(token, env.FIREBASE_PROJECT_ID) : null;
+  if (!uid) return json({ error: 'Unauthorized' }, 401);
+  let body;
+  try { body = await req.json(); } catch { body = {}; }
+  const name = (body.name || '').toString().slice(0, 200);
+  if (!name) return json({ error: 'Missing name' }, 400);
+  const hl = (body.hl || '').toString().slice(0, 5);
+  const code = randomCode(7);
+  // Codes auto-expire after a year so KV never grows unbounded (it's tiny anyway).
+  await env.LINKS.put(code, JSON.stringify({ name, hl }), { expirationTtl: 60 * 60 * 24 * 365 });
+  return json({ code }, 200);
+}
+
 function corsHeaders(req, allowed) {
   const origin = req.headers.get('Origin') || '';
   const headers = {
@@ -149,7 +191,7 @@ export default {
   async fetch(req, env) {
     // Share-link route: handled before the Gemini-proxy auth/CORS path (no token needed).
     const url = new URL(req.url);
-    if (req.method === 'GET' && url.pathname === '/s') {
+    if (req.method === 'GET' && (url.pathname === '/s' || url.pathname.startsWith('/s/'))) {
       return handleShare(url, req, env);
     }
 
@@ -157,6 +199,11 @@ export default {
     const cors = corsHeaders(req, allowed);
 
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+
+    // Short-link minter (POST /shorten) — auth'd, writes the code→landmark mapping to KV.
+    if (req.method === 'POST' && url.pathname === '/shorten') {
+      return handleShorten(req, env, cors);
+    }
     if (req.method !== 'POST') {
       return new Response('Method Not Allowed', { status: 405, headers: cors });
     }

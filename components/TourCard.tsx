@@ -4,7 +4,7 @@ import { AnalysisResult, Translation, NearbyPlace } from '../types';
 import { getNearbyPlaces } from '../services/geminiService';
 import { getDeviceLocation } from '../services/locationUtils';
 import { haversineMeters, bearingDeg, cardinal8 } from '../services/geoUtils';
-import { buildShareUrl } from '../services/shareCardUtils';
+import { buildShareUrl, mintShortShareUrl } from '../services/shareCardUtils';
 
 interface TourCardProps {
   result: AnalysisResult;
@@ -24,6 +24,15 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
   // or the slower premium Gemini voice ('ai', opt-in via the HD button).
   const [activeEngine, setActiveEngine] = useState<'native' | 'ai' | null>(null);
   const [justShared, setJustShared] = useState(false);
+  // Pre-mint a SHORT share URL (…/s/<code>) when the result is shown, so handleShare has it
+  // ready synchronously inside the tap (iOS gesture requirement). Falls back to the long URL.
+  const shortUrlRef = useRef<string | null>(null);
+  useEffect(() => {
+    shortUrlRef.current = null;
+    let cancelled = false;
+    mintShortShareUrl(result.landmarkName).then((u) => { if (!cancelled) shortUrlRef.current = u; }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [result.landmarkName]);
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
   const [isSourcesOpen, setIsSourcesOpen] = useState(false);
@@ -444,7 +453,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
 
 
   const handleShare = async () => {
-    const shareUrl = buildShareUrl(result.landmarkName);
+    const shareUrl = shortUrlRef.current || buildShareUrl(result.landmarkName);
     const text = t.shareText.replace('{name}', result.landmarkName);
 
     // Copy the link to the clipboard (with "Copied!" feedback) — the reliable, expected action
