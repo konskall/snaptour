@@ -53,8 +53,31 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, onNearMe,
       {/* Main Content Card */}
       <div className="relative z-10 max-w-md w-full bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 shadow-2xl">
         <div className="text-center mb-8">
-          <div className="bg-indigo-500/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-indigo-400 border border-indigo-500/30">
-            <Camera size={32} />
+          {/* Hero: the branded camera artwork over a soft colour glow that echoes its palette. */}
+          <div className="relative mx-auto mb-4" style={{ width: 168, height: 128 }}>
+            <div
+              aria-hidden="true"
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+              style={{
+                width: 250,
+                height: 250,
+                background: 'radial-gradient(closest-side, rgba(168,85,247,0.75), rgba(236,72,153,0.45) 44%, rgba(34,211,238,0.24) 66%, transparent 80%)',
+                filter: 'blur(13px)',
+              }}
+            />
+            <picture>
+              {/* Relative paths resolve against the app's document base (/snaptour/). */}
+              <source srcSet="camera-hero.webp" type="image/webp" />
+              <img
+                src="camera-hero.png"
+                alt=""
+                width={168}
+                height={126}
+                decoding="async"
+                fetchPriority="high"
+                className="relative w-[168px] h-auto drop-shadow-[0_10px_22px_rgba(0,0,0,0.45)]"
+              />
+            </picture>
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">{t.startTitle}</h2>
           <p className="text-slate-300 font-medium">{t.startSubtitle}</p>
