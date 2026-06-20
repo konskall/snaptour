@@ -53,7 +53,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, onNearMe,
       {/* Main Content Card — premium glass over a soft brand glow */}
       <div className="relative z-10 max-w-md w-full">
         <div aria-hidden="true" className="absolute -inset-3 rounded-[2rem] bg-gradient-to-br from-indigo-500/25 via-cyan-400/10 to-transparent blur-2xl pointer-events-none" />
-        <div className="relative bg-slate-900/55 backdrop-blur-2xl border border-white/10 ring-1 ring-white/5 rounded-[1.75rem] p-8 shadow-2xl">
+        <div className="relative bg-slate-900/30 backdrop-blur-2xl border border-white/10 ring-1 ring-white/5 rounded-[1.75rem] p-8 shadow-2xl">
         <div className="text-center mb-8">
           {/* Hero: the branded camera artwork over a soft colour glow that echoes its palette. */}
           <div className="relative mx-auto mb-4" style={{ width: 168, height: 128 }}>
