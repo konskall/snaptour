@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { HistoryItem, LandmarkMeta, Translation } from '../types';
 import { Calendar, MapPin, Home, Trash2, Share2, Check, Search, Star, Landmark } from 'lucide-react';
 import { gradientFor } from '../services/placeholderUtils';
-import { buildShareCard } from '../services/shareCardUtils';
+import { buildShareCard, buildShareUrl } from '../services/shareCardUtils';
 import { ConfirmDialog } from './ConfirmDialog';
 
 interface HistoryViewProps {
@@ -96,7 +96,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
   // a plain link share where file-sharing isn't supported. Only the landmark id travels in
   // the URL — the recipient opens it in their own language.
   const handleShare = async (item: HistoryItem) => {
-    const shareUrl = `${window.location.origin}${window.location.pathname}?l=${encodeURIComponent(item.landmarkName)}`;
+    const shareUrl = buildShareUrl(item.landmarkName);
     const text = t.shareText.replace('{name}', item.landmarkName);
 
     let file: File | null = null;

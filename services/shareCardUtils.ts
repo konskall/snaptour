@@ -145,6 +145,19 @@ function drawBrand(ctx: CanvasRenderingContext2D, x: number, y: number) {
   ctx.restore();
 }
 
+// Build the public share URL for a landmark. When the Worker proxy is configured
+// (GEMINI_PROXY_URL), route through its /s endpoint so social crawlers (WhatsApp, Messenger,
+// Telegram, Facebook, X, Slack, …) get a per-landmark Open Graph preview, and the Worker
+// 302-redirects real users to the app's deep link. Without a proxy (e.g. local dev), fall
+// back to the direct app deep link. Only the landmark id travels — the recipient opens it in
+// their own language.
+export function buildShareUrl(landmarkName: string): string {
+  const enc = encodeURIComponent(landmarkName);
+  const proxy = (process.env.GEMINI_PROXY_URL || '').replace(/\/+$/, '');
+  if (proxy) return `${proxy}/s?l=${enc}`;
+  return `${window.location.origin}${window.location.pathname}?l=${enc}`;
+}
+
 export interface ShareCardOpts {
   name: string;
   photoSrc?: string | null;

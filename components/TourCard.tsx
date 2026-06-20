@@ -4,7 +4,7 @@ import { AnalysisResult, Translation, NearbyPlace } from '../types';
 import { getNearbyPlaces } from '../services/geminiService';
 import { getDeviceLocation } from '../services/locationUtils';
 import { haversineMeters, bearingDeg, cardinal8 } from '../services/geoUtils';
-import { buildShareCard } from '../services/shareCardUtils';
+import { buildShareCard, buildShareUrl } from '../services/shareCardUtils';
 
 interface TourCardProps {
   result: AnalysisResult;
@@ -465,10 +465,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
 
 
   const handleShare = async () => {
-    const base = `${window.location.origin}${window.location.pathname}`;
-    // Only the landmark id travels — the recipient opens it in THEIR OWN language (their
-    // device/app language), which is what they can actually read.
-    const shareUrl = `${base}?l=${encodeURIComponent(result.landmarkName)}`;
+    const shareUrl = buildShareUrl(result.landmarkName);
     const text = t.shareText.replace('{name}', result.landmarkName);
 
     // Preferred path: share the pre-rendered branded IMAGE (with text + link) so the post
