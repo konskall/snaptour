@@ -94,39 +94,47 @@ function firstSentence(text: string): string {
 // Drawn entirely with canvas paths (no external/SVG asset) so it can never taint the canvas.
 function drawBrand(ctx: CanvasRenderingContext2D, x: number, y: number) {
   ctx.save();
-  const r = 21;
-  const cx = x + r;
-  const cy = y + r;
-  const g = ctx.createLinearGradient(x, y, x, y + 64);
-  g.addColorStop(0, '#22d3ee');
-  g.addColorStop(1, '#0e7490');
+  // The actual SnapTour logo (mirrors index.html, viewBox 0 0 100 120): orange offset +
+  // cyan pin + dark inner circle + cyan play triangle. Drawn via Path2D from the same SVG
+  // path data — pure canvas, so no external/SVG asset and no canvas taint.
+  const scale = 0.52;
+  const pinH = 120 * scale;
+  const pinW = 100 * scale;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  const pin = new Path2D('M90 50C90 75 50 115 50 115C50 115 10 75 10 50C10 25 30 10 50 10C70 10 90 25 90 50Z');
+  ctx.save();
+  ctx.translate(5, 5);
+  ctx.fillStyle = '#F97316';          // orange offset (the logo's signature peek)
+  ctx.fill(pin);
+  ctx.restore();
   ctx.shadowColor = 'rgba(0,0,0,0.35)';
-  ctx.shadowBlur = 10;
-  ctx.shadowOffsetY = 2;
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, Math.PI, 0);          // top half-circle
-  ctx.lineTo(cx + r, cy + 6);
-  ctx.lineTo(cx, cy + r + 17);             // bottom point
-  ctx.lineTo(cx - r, cy + 6);
-  ctx.closePath();
-  ctx.fill();
-  // play triangle
+  ctx.shadowBlur = 16;
+  ctx.shadowOffsetY = 5;
+  ctx.fillStyle = '#06B6D4';           // cyan body (with a soft drop shadow to pop on photos)
+  ctx.fill(pin);
   ctx.shadowColor = 'transparent';
-  ctx.fillStyle = '#ffffff';
   ctx.beginPath();
-  ctx.moveTo(cx - 6, cy - 9);
-  ctx.lineTo(cx - 6, cy + 9);
-  ctx.lineTo(cx + 11, cy);
-  ctx.closePath();
+  ctx.arc(50, 50, 25, 0, Math.PI * 2); // dark inner circle
+  ctx.fillStyle = '#0F172A';
   ctx.fill();
-  // wordmark
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `800 44px ${FONT}`;
+  ctx.fillStyle = '#22D3EE';           // play triangle
+  ctx.fill(new Path2D('M45 40L60 50L45 60V40Z'));
+  ctx.restore();
+  // Wordmark: "Snap" white + "Tour" cyan, vertically centred on the pin.
   ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.font = `800 46px ${FONT}`;
   ctx.shadowColor = 'rgba(0,0,0,0.45)';
   ctx.shadowBlur = 8;
-  ctx.fillText('SnapTour', x + 2 * r + 16, cy + 4);
+  const tx = x + pinW + 16;
+  const ty = y + pinH / 2;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('Snap', tx, ty);
+  const snapW = ctx.measureText('Snap').width;
+  ctx.fillStyle = '#22D3EE';
+  ctx.fillText('Tour', tx + snapW, ty);
   ctx.restore();
 }
 
@@ -179,13 +187,16 @@ export async function buildShareCard(opts: ShareCardOpts): Promise<Blob | null> 
     const maxW = W - pad * 2;
     ctx.textBaseline = 'alphabetic';
     ctx.textAlign = 'left';
-    let y = H - pad;
+    // Leave generous bottom space so chat apps that overlay a send-time + read receipts on
+    // the bottom-right (e.g. Instagram DMs) don't cover the text.
+    let y = H - 104;
 
-    // Fact (lowest), up to 3 lines
+    // Fact (lowest), up to 2 lines. The font MUST be set BEFORE wrap() measures, otherwise
+    // it measures with the default 10px font, never wraps, and the line overflows to the right.
     if (opts.fact) {
-      const factLines = wrap(ctx, firstSentence(opts.fact), maxW, 3);
       ctx.font = `400 36px ${FONT}`;
       ctx.fillStyle = 'rgba(255,255,255,0.90)';
+      const factLines = wrap(ctx, firstSentence(opts.fact), maxW, 2);
       for (let i = factLines.length - 1; i >= 0; i--) { ctx.fillText(factLines[i], pad, y); y -= 48; }
       y -= 14;
     }
