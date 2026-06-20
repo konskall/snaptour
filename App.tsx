@@ -280,11 +280,11 @@ const App: React.FC = () => {
     // Always show the Google account chooser, so logout -> login can pick a different account
     provider.setCustomParameters({ prompt: 'select_account' });
     try {
-      // Pass the resolver explicitly (auth was initialized without one — see services/firebase.ts).
-      // iOS Safari (and iOS WebViews) OPEN the popup but, with a cross-domain authDomain, can't
-      // deliver its result back to the page ("popup opens, then nothing → still logged out").
-      // Use a full-page redirect on iOS (and in-app browsers); popup is reliable on desktop & Android.
-      if (isInAppBrowser || inAppInfo.isIOS) {
+      // Popup for normal browsers (incl. iOS Safari): it completes via window.opener.postMessage,
+      // which works on iOS even with a cross-domain authDomain. signInWithRedirect, by contrast,
+      // needs cross-domain storage that iOS Safari (ITP) blocks → it never completes. Redirect is
+      // used ONLY for in-app WebViews (Instagram/FB/…), where popups are blocked outright.
+      if (isInAppBrowser) {
         sessionStorage.setItem('st_redirecting', '1'); // so we run getRedirectResult on return
         await signInWithRedirect(auth, provider, browserPopupRedirectResolver);
       } else {
@@ -292,20 +292,9 @@ const App: React.FC = () => {
       }
     } catch (err) {
       const code = (err as { code?: string })?.code || '';
-      // User closed/cancelled the chooser (or a fast double-tap superseded the first call) — not a
-      // real failure, so don't alarm them with an error toast; they can just tap again.
-      if (/cancelled-popup-request|popup-closed-by-user/i.test(code)) return;
-      // iOS Safari / standalone PWA can still refuse the popup outright (it must open synchronously
-      // inside the tap). Fall back to a full-page redirect rather than failing the login.
-      if (/popup-blocked|web-storage-unsupported|operation-not-supported/i.test(code)) {
-        try {
-          sessionStorage.setItem('st_redirecting', '1');
-          await signInWithRedirect(auth, provider, browserPopupRedirectResolver);
-          return;
-        } catch (e) {
-          console.error('Redirect fallback failed', e);
-        }
-      }
+      // Popup blocked/closed/superseded (e.g. iOS can block the first tap while the resolver loads)
+      // → stay silent so the user can simply tap again; the next tap opens AND completes the popup.
+      if (/popup-blocked|popup-closed-by-user|cancelled-popup-request|web-storage-unsupported/i.test(code)) return;
       console.error('Google sign-in failed', err);
       showToast(t.signInFailed, 'error');
     }
