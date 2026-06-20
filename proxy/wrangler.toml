@@ -16,6 +16,6 @@ ALLOWED_ORIGINS = "https://konskall.github.io"
 #   2) paste that id below and uncomment the 3 lines
 #   3) npx wrangler deploy
 # Until configured, the app automatically falls back to the long /s?l=<name> URL (no breakage).
-# [[kv_namespaces]]
-# binding = "LINKS"
-# id = "PASTE_THE_ID_HERE"
+[[kv_namespaces]]
+binding = "LINKS"
+id = "7e84d540fbff4adaa96dc182bef58526"
