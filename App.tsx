@@ -60,11 +60,10 @@ const App: React.FC = () => {
         const saved = localStorage.getItem('snaptour_lang');
         if (isSupported(saved)) return saved;
       }
-      // 2) A shared deep link can carry the sender's language (?hl=) so the recipient
-      //    opens it in that language instead of the device default.
-      const hl = new URLSearchParams(window.location.search).get('hl');
-      if (isSupported(hl)) return hl;
-      // 3) Otherwise follow the device language; English if it isn't one we support.
+      // 2) Otherwise follow the DEVICE language; English if it isn't one we support.
+      //    We deliberately do NOT honour a shared link's language: the recipient should
+      //    read a shared landmark in THEIR OWN language (the one they understand), not the
+      //    sender's — so the share link carries only the landmark id, never a language.
       const base = (navigator.language || 'en').toLowerCase().split('-')[0];
       return isSupported(base) ? base : 'en';
     } catch { return 'en'; }

@@ -93,8 +93,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
   // Share a saved landmark — like the result view: the SnapTour app link (branded
   // preview) with a ?l= deep link that opens this landmark on the recipient's side.
   const handleShare = async (item: HistoryItem) => {
-    // Carry the language (?hl=) so the recipient opens this landmark in the same language.
-    const shareUrl = `${window.location.origin}${window.location.pathname}?l=${encodeURIComponent(item.landmarkName)}&hl=${langCode}`;
+    // Only the landmark id travels — the recipient opens it in their own language.
+    const shareUrl = `${window.location.origin}${window.location.pathname}?l=${encodeURIComponent(item.landmarkName)}`;
     const text = t.shareText.replace('{name}', item.landmarkName);
     if (navigator.share) {
       try { await navigator.share({ title: item.landmarkName, text, url: shareUrl }); } catch { /* cancelled */ }
