@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { HistoryItem, LandmarkMeta, Translation } from '../types';
 import { Calendar, MapPin, Home, Trash2, Share2, Check, Search, Star, Landmark } from 'lucide-react';
 import { gradientFor } from '../services/placeholderUtils';
+import { buildShareCard } from '../services/shareCardUtils';
 import { ConfirmDialog } from './ConfirmDialog';
 
 interface HistoryViewProps {
@@ -90,14 +91,43 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
     });
   }, [items, search, country, type, favOnly]);
 
-  // Share a saved landmark — like the result view: the SnapTour app link (branded
-  // preview) with a ?l= deep link that opens this landmark on the recipient's side.
+  // Share a saved landmark — same branded image card as the result view, built from the
+  // item's stored fields (so OLD history items share with the new look too). Falls back to
+  // a plain link share where file-sharing isn't supported. Only the landmark id travels in
+  // the URL — the recipient opens it in their own language.
   const handleShare = async (item: HistoryItem) => {
-    // Only the landmark id travels — the recipient opens it in their own language.
     const shareUrl = `${window.location.origin}${window.location.pathname}?l=${encodeURIComponent(item.landmarkName)}`;
     const text = t.shareText.replace('{name}', item.landmarkName);
+
+    let file: File | null = null;
+    try {
+      // Thumbnails are base64 (user photos) or an absolute URL (Wikimedia); '' → gradient card.
+      const photoSrc = item.thumbnail
+        ? (item.thumbnail.includes('://') ? item.thumbnail : `data:image/jpeg;base64,${item.thumbnail}`)
+        : null;
+      const blob = await buildShareCard({
+        name: item.landmarkName,
+        photoSrc,
+        fact: item.detailedInfo || item.summary,
+        city: item.info?.city,
+        country: item.info?.country,
+      });
+      if (blob) { try { file = new File([blob], 'snaptour.png', { type: 'image/png' }); } catch { /* File ctor unsupported */ } }
+    } catch { /* fall back to a link share */ }
+
+    const nav = navigator as Navigator & { canShare?: (d?: ShareData) => boolean };
+    if (file && typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {
+      try {
+        await nav.share({ files: [file], text, url: shareUrl, title: item.landmarkName });
+        return;
+      } catch (err) {
+        if ((err as { name?: string })?.name === 'AbortError') return; // cancelled
+      }
+    }
+
     if (navigator.share) {
-      try { await navigator.share({ title: item.landmarkName, text, url: shareUrl }); } catch { /* cancelled */ }
+      try { await navigator.share({ title: item.landmarkName, text, url: shareUrl }); }
+      catch (err) { if ((err as { name?: string })?.name === 'AbortError') return; }
     } else {
       try {
         await navigator.clipboard.writeText(`${text} ${shareUrl}`);
