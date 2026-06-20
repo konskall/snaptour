@@ -131,8 +131,9 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, onNearMe,
             />
           </div>
 
-          {/* Elegant "or" divider between photo and location discovery */}
-          <div className="flex items-center gap-3 text-[11px] uppercase tracking-widest text-slate-500">
+          {/* Elegant "or" divider between photo and location discovery.
+              slate-400 (not 500) so the glyph reads clearly — matches the "supports" line below. */}
+          <div className="flex items-center gap-3 text-[11px] uppercase tracking-widest text-slate-400">
             <span className="h-px flex-1 bg-white/10" />
             {t.or}
             <span className="h-px flex-1 bg-white/10" />

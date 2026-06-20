@@ -199,4 +199,7 @@ export interface Translation {
   linkCopied: string;
   inAppGpsHelp: string;
   inAppSteps: string;
+  // Shown when a scan can't identify a landmark and we fall back to GPS "what's around you"
+  nearbyFallbackTitle: string;
+  nearbyFallbackSubtitle: string;
 }

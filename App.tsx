@@ -63,6 +63,7 @@ const App: React.FC = () => {
   const [nearbyLoading, setNearbyLoading] = useState(false);
   const [nearbyDenied, setNearbyDenied] = useState(false);
   const [nearbyError, setNearbyError] = useState(false); // API failure (vs genuinely none nearby)
+  const [nearbyFallback, setNearbyFallback] = useState(false); // NEARBY shown as a fallback after a scan couldn't identify a landmark
   const [missingCreds, setMissingCreds] = useState<string[]>([]);
   const [inAppInfo, setInAppInfo] = useState<InAppInfo>({ inApp: false, name: '', isIOS: false, isAndroid: false });
   const isInAppBrowser = inAppInfo.inApp;
@@ -323,6 +324,7 @@ const App: React.FC = () => {
     setNearbyPlaces([]);
     setNearbyDenied(false);
     setNearbyError(false);
+    setNearbyFallback(false); // explicit "Near me", not a post-scan fallback
     setNearbyLoading(true);
     setState(AppState.NEARBY);
     const coords = await getDeviceLocation();
@@ -416,14 +418,43 @@ const App: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
+  // A scan didn't yield a usable landmark (an alley, an ordinary spot, or an unparseable
+  // reply). Instead of a dead-end, try to be useful from the user's location: show notable
+  // places around them. Degrades gracefully via `onUnavailable` when there's no GPS/data,
+  // so we never surface the scary "failed to analyze" screen for an honest non-landmark.
+  const goNearbyFallback = async (
+    reqId: number,
+    scanCoords: { lat: number; lng: number } | undefined,
+    onUnavailable: () => void,
+  ) => {
+    setNearbyFallback(true);
+    setNearbyPlaces([]);
+    setNearbyDenied(false);
+    setNearbyError(false);
+    setNearbyLoading(true);
+    setState(AppState.NEARBY);
+    let coords = scanCoords;
+    if (!coords) coords = (await getDeviceLocation()) || undefined;
+    if (reqId !== latestRequestId.current) return; // superseded by a newer scan
+    if (!coords) { setNearbyFallback(false); setNearbyLoading(false); onUnavailable(); return; }
+    const places = await getNearbyLandmarks(coords, currentLangName);
+    if (reqId !== latestRequestId.current) return;
+    if (!places || places.length === 0) { setNearbyFallback(false); setNearbyLoading(false); onUnavailable(); return; }
+    setNearbyPlaces(places);
+    setNearbyLoading(false);
+  };
+
   const processTour = async (base64Image: string, mimeType: string, fullImageData: string, source: 'camera' | 'upload' = 'upload', file?: File) => {
     const reqId = ++latestRequestId.current;
+    // Declared outside the try so the catch fallback can reuse any location we found
+    // (avoids a second getDeviceLocation prompt on the error path).
+    let coords: { lat: number; lng: number } | undefined;
     try {
+      setIdentificationResult(null); // start each scan fresh — never carry a prior scan's guess
       setState(AppState.ANALYZING_IMAGE);
       // Location hint to disambiguate the landmark: the photo's own EXIF GPS first
       // (correct even for old uploads), then the live device location for a camera
       // capture. Anything missing/denied → image-only, exactly as before.
-      let coords: { lat: number; lng: number } | undefined;
       try {
         const exif = file ? await getExifGps(file) : null;
         coords = exif || (source === 'camera' ? await getDeviceLocation() : null) || undefined;
@@ -435,20 +466,31 @@ const App: React.FC = () => {
       const CONFIDENCE_THRESHOLD = 0.8;
       // Require a non-empty name too: the model returns an empty name for "not a
       // landmark", which must never be auto-fetched (it would narrate nonsense).
+      const hasOptions = (idResult.confidence > 0 && !!idResult.name) || (idResult.alternatives?.length ?? 0) > 0;
       if (idResult.confidence >= CONFIDENCE_THRESHOLD && idResult.name) {
         fetchDetails(idResult.name, fullImageData, coords);
-      } else {
+      } else if (hasOptions) {
+        // Uncertain but plausible candidates → let the user pick.
         setState(AppState.SELECTING_LANDMARK);
+      } else {
+        // Not a landmark → be useful from the GPS location instead of a dead-end.
+        // If there's no location/data, fall back to the friendly "not a landmark" screen
+        // (SELECTING_LANDMARK renders it because identificationResult has no options).
+        await goNearbyFallback(reqId, coords, () => setState(AppState.SELECTING_LANDMARK));
       }
     } catch (error: any) {
+      if (reqId !== latestRequestId.current) return; // a newer scan superseded this one
       console.error(error);
-      // Check for Rate Limit / Quota Exceeded
+      // Rate limit / quota → nothing else will work either, show the error.
       if (error.message?.includes("429") || error.status === 429 || JSON.stringify(error).includes("RESOURCE_EXHAUSTED")) {
          setErrorMsg(t.quotaError);
-      } else {
-         setErrorMsg(t.error);
+         setState(AppState.ERROR);
+         return;
       }
-      setState(AppState.ERROR);
+      // Other failures (the grounded identify model choked): the lighter nearby model may
+      // still help if we know where the user is — reuse the coords we already collected
+      // (EXIF / device) and only re-request if we have none.
+      await goNearbyFallback(reqId, coords, () => { setErrorMsg(t.error); setState(AppState.ERROR); });
     }
   };
 
@@ -561,6 +603,7 @@ const App: React.FC = () => {
     setNearbyPlaces([]);
     setNearbyDenied(false);
     setNearbyLoading(false);
+    setNearbyFallback(false);
   };
 
   const handleLanguageChange = (code: string) => {
@@ -798,6 +841,7 @@ const App: React.FC = () => {
             onRetry={handleNearMe}
             onSelect={(name) => fetchDetails(name, undefined, undefined, { save: true })}
             onClose={resetApp}
+            fallback={nearbyFallback}
             inAppBrowser={isInAppBrowser}
             isAndroid={inAppInfo.isAndroid}
             onOpenExternally={handleOpenExternally}

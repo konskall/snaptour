@@ -10,6 +10,7 @@ interface NearbyLandmarksProps {
   onRetry?: () => void;
   onSelect: (name: string) => void;
   onClose: () => void;
+  fallback?: boolean;            // shown after a scan couldn't identify a landmark → different title
   inAppBrowser?: boolean;        // running in a social in-app browser (GPS blocked → guide out)
   isAndroid?: boolean;           // picks the "open in browser" vs "copy link" action label
   onOpenExternally?: () => void; // open the app in the real browser / copy the link
@@ -18,36 +19,41 @@ interface NearbyLandmarksProps {
 
 // "Near me now": famous landmarks around the user's current location, discovered via
 // device GPS without taking a photo. Picking one runs the normal details pipeline.
-export const NearbyLandmarks: React.FC<NearbyLandmarksProps> = ({ places, loading, denied, error = false, onRetry, onSelect, onClose, inAppBrowser = false, isAndroid = false, onOpenExternally, t }) => {
+// Also reused as a graceful fallback when a scan can't identify a landmark (fallback=true).
+export const NearbyLandmarks: React.FC<NearbyLandmarksProps> = ({ places, loading, denied, error = false, onRetry, onSelect, onClose, fallback = false, inAppBrowser = false, isAndroid = false, onOpenExternally, t }) => {
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => { headingRef.current?.focus(); }, []);
 
   return (
-    <div className="w-full h-full overflow-y-auto custom-scrollbar animate-fade-in">
-      <div className="flex flex-col items-center min-h-full px-6 pt-header pb-safe">
-        <div className="max-w-md w-full bg-slate-800/80 backdrop-blur-lg border border-slate-700 rounded-3xl p-6 sm:p-8 shadow-2xl my-auto">
-          {/* Header */}
-          <div className="flex items-start justify-between gap-3 mb-5">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="bg-emerald-500/20 w-12 h-12 rounded-2xl flex items-center justify-center text-emerald-400 shrink-0 border border-emerald-500/30">
-                <LocateFixed size={24} />
-              </div>
-              <div className="min-w-0">
-                <h2 ref={headingRef} tabIndex={-1} className="text-xl font-bold text-white outline-none leading-tight">{t.nearMeTitle}</h2>
-                <p className="text-xs text-slate-400 mt-0.5">{t.nearMeSubtitle}</p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              aria-label={t.home}
-              title={t.home}
-              className="shrink-0 bg-slate-700/60 hover:bg-slate-700 text-slate-300 p-2 rounded-full border border-slate-600 transition-colors"
-            >
-              <Home size={16} />
-            </button>
-          </div>
+    <div className="w-full h-full flex flex-col items-center justify-center px-6 pt-header pb-safe animate-fade-in">
+      {/* Card is capped to the viewport: the header stays put while only the list scrolls. */}
+      <div className="max-w-md w-full max-h-full flex flex-col bg-slate-800/80 backdrop-blur-lg border border-slate-700 rounded-3xl shadow-2xl overflow-hidden">
 
-          {/* Body */}
+        {/* Header — fixed (does not scroll) */}
+        <div className="flex items-start justify-between gap-3 p-6 sm:p-8 pb-4 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="bg-emerald-500/20 w-12 h-12 rounded-2xl flex items-center justify-center text-emerald-400 shrink-0 border border-emerald-500/30">
+              <LocateFixed size={24} />
+            </div>
+            <div className="min-w-0">
+              <h2 ref={headingRef} tabIndex={-1} className="text-xl font-bold text-white outline-none leading-tight">
+                {fallback ? t.nearbyFallbackTitle : t.nearMeTitle}
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">{fallback ? t.nearbyFallbackSubtitle : t.nearMeSubtitle}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label={t.home}
+            title={t.home}
+            className="shrink-0 bg-slate-700/60 hover:bg-slate-700 text-slate-300 p-2 rounded-full border border-slate-600 transition-colors"
+          >
+            <Home size={16} />
+          </button>
+        </div>
+
+        {/* Body — the only scrolling region */}
+        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-6 sm:px-8 pb-6 sm:pb-8">
           {loading ? (
             <div role="status" className="flex flex-col items-center justify-center py-12 text-slate-400 gap-3">
               <Loader2 size={28} aria-hidden="true" className="animate-spin text-emerald-400" />

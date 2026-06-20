@@ -120,22 +120,28 @@ export async function identifyLandmarkFromImage(base64Image: string, mimeType: s
       });
 
       const text = response.text;
-      if (!text) throw new Error("Could not identify landmark");
-      
+      // An empty / unparseable reply means the model couldn't pin down a landmark — treat it
+      // as "not a landmark" (empty name) rather than a hard error, so the caller can fall back
+      // to a GPS "what's around you" suggestion instead of showing a scary failure screen.
+      const NOT_A_LANDMARK: LandmarkIdentification = { name: '', confidence: 0, alternatives: [] };
+      if (!text) return NOT_A_LANDMARK;
+
       // Clean up the response to ensure we get valid JSON
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      
-      if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]);
-        // Normalize so callers never receive undefined fields (prevents render crash in LandmarkSelector).
-        return {
-          name: typeof data?.name === 'string' ? data.name : '',
-          confidence: (typeof data?.confidence === 'number' && Number.isFinite(data.confidence)) ? data.confidence : 0,
-          alternatives: Array.isArray(data?.alternatives) ? data.alternatives.filter((a: unknown) => typeof a === 'string') : [],
-        };
-      } else {
-        throw new Error("Invalid response format from AI");
+      if (!jsonMatch) return NOT_A_LANDMARK;
+
+      let data: any;
+      try {
+        data = JSON.parse(jsonMatch[0]);
+      } catch {
+        return NOT_A_LANDMARK; // malformed JSON → not a landmark, not a crash
       }
+      // Normalize so callers never receive undefined fields (prevents render crash in LandmarkSelector).
+      return {
+        name: typeof data?.name === 'string' ? data.name : '',
+        confidence: (typeof data?.confidence === 'number' && Number.isFinite(data.confidence)) ? data.confidence : 0,
+        alternatives: Array.isArray(data?.alternatives) ? data.alternatives.filter((a: unknown) => typeof a === 'string') : [],
+      };
 
     } catch (error) {
       console.error("Error identifying landmark:", error);
