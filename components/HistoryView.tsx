@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { HistoryItem, LandmarkMeta, Translation } from '../types';
 import { Calendar, MapPin, Home, Trash2, Share2, Check, Search, Star, Landmark } from 'lucide-react';
 import { gradientFor } from '../services/placeholderUtils';
-import { buildShareCard, buildShareUrl } from '../services/shareCardUtils';
+import { buildShareUrl } from '../services/shareCardUtils';
 import { ConfirmDialog } from './ConfirmDialog';
 
 interface HistoryViewProps {
@@ -91,16 +91,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
     });
   }, [items, search, country, type, favOnly]);
 
-  // Share a saved landmark — same branded image card as the result view, built from the
-  // item's stored fields (so OLD history items share with the new look too). Falls back to
-  // a plain link share where file-sharing isn't supported. Only the landmark id travels in
-  // the URL — the recipient opens it in their own language.
+  // Share a saved landmark — the LINK only (the Worker /s endpoint renders a per-landmark
+  // Open Graph preview on the recipient's side). Only the landmark id travels in the URL, so
+  // the recipient opens it in their own language. Desktop copies the link.
   const handleShare = async (item: HistoryItem) => {
     const shareUrl = buildShareUrl(item.landmarkName);
     const text = t.shareText.replace('{name}', item.landmarkName);
 
-    // Copy the link with a per-item "copied" tick — reliable on desktop (poor native share
-    // sheet) and a graceful fallback everywhere.
     const copyLink = async () => {
       try {
         await navigator.clipboard.writeText(`${text} ${shareUrl}`);
@@ -109,30 +106,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
       } catch { /* clipboard unavailable */ }
     };
 
-    // Native share (branded image card + link) on touch devices only; desktop just copies.
     const isTouch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
     if (isTouch && navigator.share) {
-      let file: File | null = null;
-      try {
-        // Thumbnails are base64 (user photos) or an absolute URL (Wikimedia); '' → gradient card.
-        const photoSrc = item.thumbnail
-          ? (item.thumbnail.includes('://') ? item.thumbnail : `data:image/jpeg;base64,${item.thumbnail}`)
-          : null;
-        const blob = await buildShareCard({
-          name: item.landmarkName,
-          photoSrc,
-          fact: item.detailedInfo || item.summary,
-          city: item.info?.city,
-          country: item.info?.country,
-        });
-        if (blob) { try { file = new File([blob], 'snaptour.png', { type: 'image/png' }); } catch { /* File ctor unsupported */ } }
-      } catch { /* fall back to a link share */ }
-
-      const nav = navigator as Navigator & { canShare?: (d?: ShareData) => boolean };
-      if (file && typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {
-        try { await nav.share({ files: [file], text, url: shareUrl, title: item.landmarkName }); return; }
-        catch (err) { if ((err as { name?: string })?.name === 'AbortError') return; }
-      }
       try { await navigator.share({ title: item.landmarkName, text, url: shareUrl }); return; }
       catch (err) { if ((err as { name?: string })?.name === 'AbortError') return; }
     }

@@ -4,7 +4,7 @@ import { AnalysisResult, Translation, NearbyPlace } from '../types';
 import { getNearbyPlaces } from '../services/geminiService';
 import { getDeviceLocation } from '../services/locationUtils';
 import { haversineMeters, bearingDeg, cardinal8 } from '../services/geoUtils';
-import { buildShareCard, buildShareUrl } from '../services/shareCardUtils';
+import { buildShareUrl } from '../services/shareCardUtils';
 
 interface TourCardProps {
   result: AnalysisResult;
@@ -16,35 +16,14 @@ interface TourCardProps {
   langCode?: string;
   langName: string;
   locatedByGps?: boolean;
-  imageSrc?: string; // the result-view photo (scan data-URI or Wikimedia URL) for the share card
 }
 
-export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onGenerateAudio, t, isAudioLoading = false, langCode = 'en', langName, locatedByGps = false, imageSrc }) => {
+export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onGenerateAudio, t, isAudioLoading = false, langCode = 'en', langName, locatedByGps = false }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   // Which audio engine is active: the instant browser voice ('native', the default)
   // or the slower premium Gemini voice ('ai', opt-in via the HD button).
   const [activeEngine, setActiveEngine] = useState<'native' | 'ai' | null>(null);
   const [justShared, setJustShared] = useState(false);
-  // Pre-render the branded share-card PNG when the result/photo is ready, so handleShare can
-  // call navigator.share SYNCHRONOUSLY inside the tap (iOS requires the gesture; awaiting an
-  // image load at tap time would lose it). Falls back to a link-only share if not ready.
-  const shareFileRef = useRef<File | null>(null);
-  useEffect(() => {
-    shareFileRef.current = null;
-    let cancelled = false;
-    buildShareCard({
-      name: result.landmarkName,
-      photoSrc: imageSrc,
-      fact: result.detailedInfo,
-      city: result.meta?.city,
-      country: result.meta?.country,
-    }).then((blob) => {
-      if (!cancelled && blob) {
-        try { shareFileRef.current = new File([blob], 'snaptour.png', { type: 'image/png' }); } catch { /* File ctor unsupported */ }
-      }
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [result.landmarkName, result.detailedInfo, result.meta?.city, result.meta?.country, imageSrc]);
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
   const [isSourcesOpen, setIsSourcesOpen] = useState(false);
@@ -480,16 +459,10 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
       }
     };
 
-    // The native share sheet (branded image card + link) shines on touch devices. On desktop
-    // we skip it (clunky / often empty) and just copy the link instead.
+    // Share the LINK only (no image file): every platform then renders ONE clean per-landmark
+    // preview via the Worker /s Open Graph — no mix of image + link. Desktop copies the link.
     const isTouch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
     if (isTouch && navigator.share) {
-      const file = shareFileRef.current;
-      const nav = navigator as Navigator & { canShare?: (d?: ShareData) => boolean };
-      if (file && typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {
-        try { await nav.share({ files: [file], text, url: shareUrl, title: result.landmarkName }); return; }
-        catch (err) { if ((err as { name?: string })?.name === 'AbortError') return; }
-      }
       try { await navigator.share({ title: result.landmarkName, text, url: shareUrl }); return; }
       catch (err) { if ((err as { name?: string })?.name === 'AbortError') return; }
       // share failed (non-cancel) → fall through to copying the link

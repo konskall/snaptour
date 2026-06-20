@@ -992,7 +992,6 @@ const App: React.FC = () => {
             langCode={langCode}
             langName={currentLangName}
             locatedByGps={scanUsedLocation}
-            imageSrc={selectedImage || undefined}
           />
         )}
         
