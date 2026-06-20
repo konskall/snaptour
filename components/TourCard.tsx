@@ -468,29 +468,9 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
     const shareUrl = buildShareUrl(result.landmarkName);
     const text = t.shareText.replace('{name}', result.landmarkName);
 
-    // Preferred path: share the pre-rendered branded IMAGE (with text + link) so the post
-    // shows a finished card instead of the site's generic Open Graph preview.
-    const file = shareFileRef.current;
-    const nav = navigator as Navigator & { canShare?: (d?: ShareData) => boolean };
-    if (file && typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {
-      try {
-        await nav.share({ files: [file], text, url: shareUrl, title: result.landmarkName });
-        return;
-      } catch (err) {
-        if ((err as { name?: string })?.name === 'AbortError') return; // user cancelled — done
-        // otherwise fall through to a link-only share
-      }
-    }
-
-    // Fallback: share (or copy) just the link.
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: result.landmarkName, text, url: shareUrl });
-      } catch (err) {
-        if ((err as { name?: string })?.name === 'AbortError') return;
-        console.log('Error sharing', err);
-      }
-    } else {
+    // Copy the link to the clipboard (with "Copied!" feedback) — the reliable, expected action
+    // on desktop, where the native share sheet is poor/empty, and a graceful fallback elsewhere.
+    const copyLink = async () => {
       try {
         await navigator.clipboard.writeText(`${text} ${shareUrl}`);
         setJustShared(true);
@@ -498,7 +478,24 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
       } catch (err) {
         console.error('Failed to copy', err);
       }
+    };
+
+    // The native share sheet (branded image card + link) shines on touch devices. On desktop
+    // we skip it (clunky / often empty) and just copy the link instead.
+    const isTouch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+    if (isTouch && navigator.share) {
+      const file = shareFileRef.current;
+      const nav = navigator as Navigator & { canShare?: (d?: ShareData) => boolean };
+      if (file && typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {
+        try { await nav.share({ files: [file], text, url: shareUrl, title: result.landmarkName }); return; }
+        catch (err) { if ((err as { name?: string })?.name === 'AbortError') return; }
+      }
+      try { await navigator.share({ title: result.landmarkName, text, url: shareUrl }); return; }
+      catch (err) { if ((err as { name?: string })?.name === 'AbortError') return; }
+      // share failed (non-cancel) → fall through to copying the link
     }
+
+    await copyLink();
   };
 
   // Filter out unique links to avoid duplicates

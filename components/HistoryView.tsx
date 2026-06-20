@@ -99,42 +99,45 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
     const shareUrl = buildShareUrl(item.landmarkName);
     const text = t.shareText.replace('{name}', item.landmarkName);
 
-    let file: File | null = null;
-    try {
-      // Thumbnails are base64 (user photos) or an absolute URL (Wikimedia); '' → gradient card.
-      const photoSrc = item.thumbnail
-        ? (item.thumbnail.includes('://') ? item.thumbnail : `data:image/jpeg;base64,${item.thumbnail}`)
-        : null;
-      const blob = await buildShareCard({
-        name: item.landmarkName,
-        photoSrc,
-        fact: item.detailedInfo || item.summary,
-        city: item.info?.city,
-        country: item.info?.country,
-      });
-      if (blob) { try { file = new File([blob], 'snaptour.png', { type: 'image/png' }); } catch { /* File ctor unsupported */ } }
-    } catch { /* fall back to a link share */ }
-
-    const nav = navigator as Navigator & { canShare?: (d?: ShareData) => boolean };
-    if (file && typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {
-      try {
-        await nav.share({ files: [file], text, url: shareUrl, title: item.landmarkName });
-        return;
-      } catch (err) {
-        if ((err as { name?: string })?.name === 'AbortError') return; // cancelled
-      }
-    }
-
-    if (navigator.share) {
-      try { await navigator.share({ title: item.landmarkName, text, url: shareUrl }); }
-      catch (err) { if ((err as { name?: string })?.name === 'AbortError') return; }
-    } else {
+    // Copy the link with a per-item "copied" tick — reliable on desktop (poor native share
+    // sheet) and a graceful fallback everywhere.
+    const copyLink = async () => {
       try {
         await navigator.clipboard.writeText(`${text} ${shareUrl}`);
         setSharedId(item.id);
         setTimeout(() => setSharedId(null), 2000);
       } catch { /* clipboard unavailable */ }
+    };
+
+    // Native share (branded image card + link) on touch devices only; desktop just copies.
+    const isTouch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+    if (isTouch && navigator.share) {
+      let file: File | null = null;
+      try {
+        // Thumbnails are base64 (user photos) or an absolute URL (Wikimedia); '' → gradient card.
+        const photoSrc = item.thumbnail
+          ? (item.thumbnail.includes('://') ? item.thumbnail : `data:image/jpeg;base64,${item.thumbnail}`)
+          : null;
+        const blob = await buildShareCard({
+          name: item.landmarkName,
+          photoSrc,
+          fact: item.detailedInfo || item.summary,
+          city: item.info?.city,
+          country: item.info?.country,
+        });
+        if (blob) { try { file = new File([blob], 'snaptour.png', { type: 'image/png' }); } catch { /* File ctor unsupported */ } }
+      } catch { /* fall back to a link share */ }
+
+      const nav = navigator as Navigator & { canShare?: (d?: ShareData) => boolean };
+      if (file && typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {
+        try { await nav.share({ files: [file], text, url: shareUrl, title: item.landmarkName }); return; }
+        catch (err) { if ((err as { name?: string })?.name === 'AbortError') return; }
+      }
+      try { await navigator.share({ title: item.landmarkName, text, url: shareUrl }); return; }
+      catch (err) { if ((err as { name?: string })?.name === 'AbortError') return; }
     }
+
+    await copyLink();
   };
 
   useEffect(() => {
