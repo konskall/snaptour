@@ -156,7 +156,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const missing = [];
-    if (!process.env.API_KEY) missing.push("API_KEY");
+    // In proxy mode the key lives in the Worker, so a client-side API_KEY isn't required.
+    if (!process.env.GEMINI_PROXY_URL && !process.env.API_KEY) missing.push("API_KEY");
     if (!isFirebaseConfigured()) missing.push("FIREBASE_*");
     setMissingCreds(missing);
   }, []);
@@ -183,7 +184,9 @@ const App: React.FC = () => {
       // Tear down any previous user's live history subscription.
       historyUnsubRef.current?.();
       historyUnsubRef.current = null;
-      if (fbUser) {
+      // Anonymous users exist only to carry a token to the Gemini proxy — they are NOT a real
+      // login, so the UI treats them as logged-out (show the sign-in button, no history sync).
+      if (fbUser && !fbUser.isAnonymous) {
         const mapped: User = {
           uid: fbUser.uid,
           name: fbUser.displayName || 'Traveler',

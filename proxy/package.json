@@ -1,0 +1,16 @@
+{
+  "name": "snaptour-proxy",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker that proxies Gemini calls, keeping the API key server-side.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}

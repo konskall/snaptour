@@ -1,0 +1,11 @@
+name = "snaptour-proxy"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# Public (non-secret) config. Edit to match your project / origin.
+[vars]
+FIREBASE_PROJECT_ID = "snaptour-cd55f"
+ALLOWED_ORIGINS = "https://konskall.github.io"
+
+# GEMINI_KEY is a SECRET — do NOT put it here. Set it once with:
+#   npx wrangler secret put GEMINI_KEY

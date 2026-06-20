@@ -36,6 +36,9 @@ export default defineConfig(({ mode }) => {
     // This defines process.env variables so they work in the browser environment
     define: {
       'process.env.API_KEY': JSON.stringify(env.API_KEY || ""),
+      // When set, the app routes Gemini calls through this proxy (key stays server-side).
+      // Empty → fall back to the direct-key path, so nothing breaks until the proxy is wired.
+      'process.env.GEMINI_PROXY_URL': JSON.stringify(env.GEMINI_PROXY_URL || ""),
       'process.env.FIREBASE_API_KEY': JSON.stringify(env.FIREBASE_API_KEY || ""),
       'process.env.FIREBASE_AUTH_DOMAIN': JSON.stringify(env.FIREBASE_AUTH_DOMAIN || ""),
       'process.env.FIREBASE_PROJECT_ID': JSON.stringify(env.FIREBASE_PROJECT_ID || ""),

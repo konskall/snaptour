@@ -1,6 +1,11 @@
 import type { GoogleGenAI } from "@google/genai";
 import { decodeBase64, decodeAudioData } from "./audioUtils";
+import { getProxyAuthToken } from "./firebase";
 import { GroundingChunk, LandmarkIdentification, ChatMessage, NearbyPlace, LandmarkMeta } from "../types";
+
+// When set at build time, every Gemini call is routed through our Cloudflare Worker proxy,
+// which holds the real API key server-side. Empty → direct-key path (back-compat).
+const PROXY_URL = process.env.GEMINI_PROXY_URL || "";
 
 // Lazily load the heavy @google/genai SDK so Vite code-splits it into its own
 // chunk that is only fetched when the user first triggers an AI call, keeping
@@ -15,8 +20,24 @@ const loadSdk = (): Promise<GenAIModule> => {
 let aiInstance: GoogleGenAI | null = null;
 
 const getAI = async (): Promise<GoogleGenAI> => {
+  const { GoogleGenAI } = await loadSdk();
+
+  // Proxy mode: the real key lives in the Cloudflare Worker. We point the SDK at the Worker
+  // (baseUrl) and attach a fresh Firebase ID token; the Worker verifies it and injects the
+  // real key. Not cached — a fresh instance per call keeps the (hourly) token current.
+  if (PROXY_URL) {
+    const token = await getProxyAuthToken();
+    return new GoogleGenAI({
+      apiKey: 'proxied', // placeholder; ignored by the Worker, which uses the real key
+      httpOptions: {
+        baseUrl: PROXY_URL,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      },
+    });
+  }
+
+  // Direct-key path (used until GEMINI_PROXY_URL is set) — key from the build env.
   if (!aiInstance) {
-    const { GoogleGenAI } = await loadSdk();
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
       console.error("API Key is missing. Please check your .env file or GitHub Secrets.");
