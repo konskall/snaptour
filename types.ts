@@ -193,4 +193,10 @@ export interface Translation {
   filterByCountry: string;
   filterByType: string;
   or: string;
+  // In-app browser (Instagram/Facebook/… WebViews block GPS & login → guide user out)
+  openInBrowser: string;
+  copyLink: string;
+  linkCopied: string;
+  inAppGpsHelp: string;
+  inAppSteps: string;
 }

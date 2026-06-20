@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { LocateFixed, Loader2, MapPin, ChevronRight, Home, MapPinOff, Compass } from 'lucide-react';
+import { LocateFixed, Loader2, MapPin, ChevronRight, Home, MapPinOff, Compass, ExternalLink } from 'lucide-react';
 import { NearbyPlace, Translation } from '../types';
 
 interface NearbyLandmarksProps {
@@ -10,12 +10,15 @@ interface NearbyLandmarksProps {
   onRetry?: () => void;
   onSelect: (name: string) => void;
   onClose: () => void;
+  inAppBrowser?: boolean;        // running in a social in-app browser (GPS blocked → guide out)
+  isAndroid?: boolean;           // picks the "open in browser" vs "copy link" action label
+  onOpenExternally?: () => void; // open the app in the real browser / copy the link
   t: Translation;
 }
 
 // "Near me now": famous landmarks around the user's current location, discovered via
 // device GPS without taking a photo. Picking one runs the normal details pipeline.
-export const NearbyLandmarks: React.FC<NearbyLandmarksProps> = ({ places, loading, denied, error = false, onRetry, onSelect, onClose, t }) => {
+export const NearbyLandmarks: React.FC<NearbyLandmarksProps> = ({ places, loading, denied, error = false, onRetry, onSelect, onClose, inAppBrowser = false, isAndroid = false, onOpenExternally, t }) => {
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => { headingRef.current?.focus(); }, []);
 
@@ -62,6 +65,31 @@ export const NearbyLandmarks: React.FC<NearbyLandmarksProps> = ({ places, loadin
                   {t.tryAgain}
                 </button>
               )}
+            </div>
+          ) : denied && inAppBrowser ? (
+            // GPS is blocked by the social in-app browser's WebView — can't fix from
+            // here, so explain and offer a way out to the real browser.
+            <div className="flex flex-col items-center justify-center py-8 text-center gap-4">
+              <div className="bg-amber-500/15 w-14 h-14 rounded-2xl flex items-center justify-center text-amber-400 border border-amber-500/30">
+                <ExternalLink size={26} />
+              </div>
+              <p className="text-sm text-slate-300 max-w-xs leading-relaxed">{t.inAppGpsHelp}</p>
+              {onOpenExternally && (
+                <button
+                  onClick={onOpenExternally}
+                  className="py-2.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-colors flex items-center gap-2"
+                >
+                  <ExternalLink size={16} />
+                  {isAndroid ? t.openInBrowser : t.copyLink}
+                </button>
+              )}
+              <p className="text-xs text-slate-500 max-w-xs">{t.inAppSteps}</p>
+              <button
+                onClick={onClose}
+                className="text-xs text-slate-400 hover:text-slate-200 underline underline-offset-2 transition-colors"
+              >
+                {t.home}
+              </button>
             </div>
           ) : denied ? (
             <div className="flex flex-col items-center justify-center py-10 text-center gap-4">

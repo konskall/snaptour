@@ -11,12 +11,13 @@ import { PassportView } from './components/PassportView';
 import { Toast, type ToastType } from './components/Toast';
 import { identifyLandmarkFromImage, getLandmarkDetails, generateNarrationAudio, getLandmarkInfo, getNearbyLandmarks } from './services/geminiService';
 import { getDeviceLocation, getExifGps } from './services/locationUtils';
+import { detectInAppBrowser, type InAppInfo } from './services/browserUtils';
 import { saveHistoryItem, subscribeHistory, createThumbnail, createScaledImage, clearHistory, deleteHistoryItem, migrateLocalHistory, setFavorite, clearCache } from './services/storageService';
 import { fetchLandmarkImage } from './services/wikimediaService';
 import { auth, isFirebaseConfigured } from './services/firebase';
 import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, browserPopupRedirectResolver, type User as FirebaseUser } from 'firebase/auth';
 import { AppState, AnalysisResult, LandmarkIdentification, LandmarkMeta, User, HistoryItem, NearbyPlace } from './types';
-import { Loader2, History, LogOut, Zap, AlertTriangle, ExternalLink, MapPinned, Award } from 'lucide-react';
+import { Loader2, History, LogOut, Zap, AlertTriangle, ExternalLink, MapPinned, Award, X } from 'lucide-react';
 import { Logo } from './components/Logo';
 import { LANGUAGES, translations } from './translations';
 
@@ -63,7 +64,10 @@ const App: React.FC = () => {
   const [nearbyDenied, setNearbyDenied] = useState(false);
   const [nearbyError, setNearbyError] = useState(false); // API failure (vs genuinely none nearby)
   const [missingCreds, setMissingCreds] = useState<string[]>([]);
-  const [isInAppBrowser, setIsInAppBrowser] = useState(false);
+  const [inAppInfo, setInAppInfo] = useState<InAppInfo>({ inApp: false, name: '', isIOS: false, isAndroid: false });
+  const isInAppBrowser = inAppInfo.inApp;
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const showInAppBanner = isInAppBrowser && !bannerDismissed;
   // In-app toast (replaces native alert()) for transient notices like sign-in errors.
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
   const showToast = (message: string, type: ToastType = 'info') => setToast({ message, type });
@@ -147,7 +151,7 @@ const App: React.FC = () => {
       window.removeEventListener('resize', update);
       window.removeEventListener('orientationchange', update);
     };
-  }, [isInAppBrowser, missingCreds.length]);
+  }, [showInAppBanner, missingCreds.length]);
 
   useEffect(() => {
     const missing = [];
@@ -156,13 +160,11 @@ const App: React.FC = () => {
     setMissingCreds(missing);
   }, []);
 
-  // Detect In-App Browser (Specifically LinkedIn where Google Login fails)
+  // Detect social in-app browsers (Instagram, Facebook, TikTok, LinkedIn, …). Their
+  // embedded WebViews block GPS and OAuth popups, so we steer users to a real browser
+  // (see the banner + the "Near me" denied state) and use redirect sign-in below.
   useEffect(() => {
-    const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
-    // Regex to detect ONLY LinkedIn based on user feedback
-    if (/(LinkedInApp)/i.test(ua)) {
-      setIsInAppBrowser(true);
-    }
+    setInAppInfo(detectInAppBrowser());
   }, []);
 
   // Subscribe to Firebase auth state (handles session persistence + redirect return)
@@ -287,6 +289,26 @@ const App: React.FC = () => {
   const handleToggleFavorite = async (item: HistoryItem) => {
     if (user) {
       setUserHistory(await setFavorite(user.uid, item.id, !item.favorite));
+    }
+  };
+
+  // Leave the social in-app browser for the user's real browser, where GPS & login work.
+  // Android: jump straight to Chrome via an intent: URL. iOS: Safari can't be force-opened
+  // from a WebView, so copy the link for the user to paste (plus the on-screen ••• hint).
+  const APP_URL = 'https://konskall.github.io/snaptour/';
+  const handleOpenExternally = async () => {
+    if (inAppInfo.isAndroid) {
+      try {
+        window.location.href =
+          'intent://konskall.github.io/snaptour/#Intent;scheme=https;package=com.android.chrome;end';
+        return;
+      } catch { /* fall through to copy */ }
+    }
+    try {
+      await navigator.clipboard.writeText(APP_URL);
+      showToast(t.linkCopied, 'success');
+    } catch {
+      showToast(APP_URL, 'info');
     }
   };
 
@@ -562,15 +584,28 @@ const App: React.FC = () => {
       {/* In-app toast (replaces native alert) */}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} closeLabel={t.close} />}
 
-      {/* In-App Browser Warning Banner */}
-      {isInAppBrowser && (
-        <div className="absolute top-0 left-0 right-0 bg-amber-600 text-white z-[110] px-4 py-3 flex items-center justify-center shadow-xl animate-slide-down" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-           <div className="flex items-center gap-3 text-center">
-             <ExternalLink size={20} className="flex-shrink-0" />
-             <span className="text-sm font-bold">
-               {t.inAppBrowserWarning}
-             </span>
-           </div>
+      {/* In-app browser banner: these WebViews block GPS & login, so steer users out.
+          Dismissible — the header `top` offset and --header-h tracking key off showInAppBanner. */}
+      {showInAppBanner && (
+        <div className="absolute top-0 left-0 right-0 bg-amber-600 text-white z-[110] px-3 py-3 flex items-center gap-2 shadow-xl animate-slide-down" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+           <ExternalLink size={18} className="shrink-0" />
+           <span className="text-xs font-semibold leading-snug flex-1 min-w-0">
+             {inAppInfo.name ? `${inAppInfo.name}: ` : ''}{t.inAppBrowserWarning}
+           </span>
+           <button
+             onClick={handleOpenExternally}
+             className="shrink-0 text-xs font-bold bg-white/20 hover:bg-white/30 px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+           >
+             {inAppInfo.isAndroid ? t.openInBrowser : t.copyLink}
+           </button>
+           <button
+             onClick={() => setBannerDismissed(true)}
+             aria-label={t.dismiss}
+             title={t.dismiss}
+             className="shrink-0 p-1 rounded-md hover:bg-white/20 transition-colors"
+           >
+             <X size={16} />
+           </button>
         </div>
       )}
 
@@ -590,7 +625,7 @@ const App: React.FC = () => {
 
       <header
         ref={headerRef}
-        className={`absolute ${isInAppBrowser ? 'top-16' : missingCreds.length > 0 ? 'top-10' : 'top-0'} left-0 right-0 p-6 z-40 flex items-center justify-between pointer-events-none transition-all`}
+        className={`absolute ${showInAppBanner ? 'top-16' : missingCreds.length > 0 ? 'top-10' : 'top-0'} left-0 right-0 p-6 z-40 flex items-center justify-between pointer-events-none transition-all`}
         style={{
           // Keep existing p-6 (1.5rem) baseline while honoring device safe-area insets
           paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
@@ -763,6 +798,9 @@ const App: React.FC = () => {
             onRetry={handleNearMe}
             onSelect={(name) => fetchDetails(name, undefined, undefined, { save: true })}
             onClose={resetApp}
+            inAppBrowser={isInAppBrowser}
+            isAndroid={inAppInfo.isAndroid}
+            onOpenExternally={handleOpenExternally}
             t={t}
           />
         )}
