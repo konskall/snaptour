@@ -4,6 +4,7 @@ import { AnalysisResult, Translation, NearbyPlace } from '../types';
 import { getNearbyPlaces } from '../services/geminiService';
 import { getDeviceLocation } from '../services/locationUtils';
 import { haversineMeters, bearingDeg, cardinal8 } from '../services/geoUtils';
+import { buildShareCard } from '../services/shareCardUtils';
 
 interface TourCardProps {
   result: AnalysisResult;
@@ -15,14 +16,35 @@ interface TourCardProps {
   langCode?: string;
   langName: string;
   locatedByGps?: boolean;
+  imageSrc?: string; // the result-view photo (scan data-URI or Wikimedia URL) for the share card
 }
 
-export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onGenerateAudio, t, isAudioLoading = false, langCode = 'en', langName, locatedByGps = false }) => {
+export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onGenerateAudio, t, isAudioLoading = false, langCode = 'en', langName, locatedByGps = false, imageSrc }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   // Which audio engine is active: the instant browser voice ('native', the default)
   // or the slower premium Gemini voice ('ai', opt-in via the HD button).
   const [activeEngine, setActiveEngine] = useState<'native' | 'ai' | null>(null);
   const [justShared, setJustShared] = useState(false);
+  // Pre-render the branded share-card PNG when the result/photo is ready, so handleShare can
+  // call navigator.share SYNCHRONOUSLY inside the tap (iOS requires the gesture; awaiting an
+  // image load at tap time would lose it). Falls back to a link-only share if not ready.
+  const shareFileRef = useRef<File | null>(null);
+  useEffect(() => {
+    shareFileRef.current = null;
+    let cancelled = false;
+    buildShareCard({
+      name: result.landmarkName,
+      photoSrc: imageSrc,
+      fact: result.detailedInfo,
+      city: result.meta?.city,
+      country: result.meta?.country,
+    }).then((blob) => {
+      if (!cancelled && blob) {
+        try { shareFileRef.current = new File([blob], 'snaptour.png', { type: 'image/png' }); } catch { /* File ctor unsupported */ }
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [result.landmarkName, result.detailedInfo, result.meta?.city, result.meta?.country, imageSrc]);
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
   const [isSourcesOpen, setIsSourcesOpen] = useState(false);
@@ -443,24 +465,32 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
 
 
   const handleShare = async () => {
-    // Share the SnapTour app URL (not a Maps link) so the rich link preview shows
-    // the SnapTour branding/icon from the site's Open Graph tags (og:image). The
-    // ?l= deep link makes the recipient's app open this landmark directly; the query
-    // string is ignored by the static host, so the OG preview is unaffected.
     const base = `${window.location.origin}${window.location.pathname}`;
     // Only the landmark id travels — the recipient opens it in THEIR OWN language (their
     // device/app language), which is what they can actually read.
     const shareUrl = `${base}?l=${encodeURIComponent(result.landmarkName)}`;
     const text = t.shareText.replace('{name}', result.landmarkName);
 
+    // Preferred path: share the pre-rendered branded IMAGE (with text + link) so the post
+    // shows a finished card instead of the site's generic Open Graph preview.
+    const file = shareFileRef.current;
+    const nav = navigator as Navigator & { canShare?: (d?: ShareData) => boolean };
+    if (file && typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {
+      try {
+        await nav.share({ files: [file], text, url: shareUrl, title: result.landmarkName });
+        return;
+      } catch (err) {
+        if ((err as { name?: string })?.name === 'AbortError') return; // user cancelled — done
+        // otherwise fall through to a link-only share
+      }
+    }
+
+    // Fallback: share (or copy) just the link.
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: result.landmarkName,
-          text,
-          url: shareUrl,
-        });
+        await navigator.share({ title: result.landmarkName, text, url: shareUrl });
       } catch (err) {
+        if ((err as { name?: string })?.name === 'AbortError') return;
         console.log('Error sharing', err);
       }
     } else {
