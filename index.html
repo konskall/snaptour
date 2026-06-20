@@ -31,26 +31,26 @@
     </script>
     <title>SnapTour - AI Landmark Recognition & Audio Tours</title>
 <meta name="description" content="Discover landmark history instantly. Take a photo, get AI-powered recognition, and listen to narrated audio tours with fascinating historical insights.">
-<meta name="keywords" content="landmarks, AI recognition, audio tours, history, tourism, travel app, photo recognition">
 <meta name="author" content="SnapTour">
-<meta name="robots" content="index, follow">
-<meta name="language" content="English">
+<meta name="robots" content="index, follow, max-image-preview:large">
 <!-- Open Graph / Facebook -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://konskall.github.io/snaptour/">
 <meta property="og:title" content="SnapTour - AI Landmark Recognition & Audio Tours">
 <meta property="og:description" content="Discover landmark history instantly. Take a photo, get AI-powered recognition, and listen to narrated audio tours with fascinating historical insights.">
-<meta property="og:image" content="https://konskall.github.io/snaptour/ogsnaptour.png?v=3">
+<meta property="og:image" content="https://konskall.github.io/snaptour/ogsnaptour.jpg?v=4">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:type" content="image/png">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:alt" content="SnapTour — point your camera at a landmark and hear its history as a narrated audio tour">
 <meta property="og:site_name" content="SnapTour">
 <meta property="og:locale" content="en_US">
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="SnapTour - AI Landmark Recognition & Audio Tours">
 <meta name="twitter:description" content="Discover landmark history instantly. Take a photo, get AI-powered recognition, and listen to narrated audio tours with fascinating historical insights.">
-<meta name="twitter:image" content="https://konskall.github.io/snaptour/ogsnaptour.png?v=3">
+<meta name="twitter:image" content="https://konskall.github.io/snaptour/ogsnaptour.jpg?v=4">
+<meta name="twitter:image:alt" content="SnapTour — AI landmark recognition & narrated audio tours">
 <!-- Apple / iOS -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -79,14 +79,42 @@
   "name": "SnapTour",
   "applicationCategory": "TravelApplication",
   "operatingSystem": "Web",
+  "browserRequirements": "Requires JavaScript. Requires HTML5.",
   "url": "https://konskall.github.io/snaptour/",
   "description": "Discover landmark history instantly. Take a photo, get AI-powered recognition, and listen to narrated audio tours with fascinating historical insights.",
-  "image": "https://konskall.github.io/snaptour/ogsnaptour.png?v=3"
+  "image": "https://konskall.github.io/snaptour/ogsnaptour.jpg?v=4",
+  "inLanguage": ["en", "el", "es", "fr", "de", "zh", "hi"],
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Person",
+    "name": "Konstantinos Kalliakoudis",
+    "url": "https://www.linkedin.com/in/konstantinos-kalliakoudis-902b90103"
+  }
 }
 </script>
 </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Pre-render fallback: real content for crawlers and no-JS visitors, and a brief
+           branded splash until the app mounts (React's createRoot replaces #root on load).
+           Mirrors the app's actual purpose — not cloaking. Inline styles so it renders even
+           before the CSS bundle loads. -->
+      <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px;background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,-apple-system,sans-serif;text-align:center;box-sizing:border-box">
+        <h1 style="margin:0;font-size:clamp(1.4rem,5vw,2rem);font-weight:800;color:#fff;line-height:1.2">SnapTour — AI Landmark Recognition &amp; Audio Tours</h1>
+        <p style="margin:0;max-width:34rem;color:#94a3b8;line-height:1.6">Point your camera at any monument or landmark and SnapTour identifies it instantly, then tells its story with a narrated, AI-generated audio tour. Available in 7 languages, with GPS &ldquo;near me&rdquo; discovery, a travel passport, a map of the places you&rsquo;ve visited, and offline access to your saved tours.</p>
+        <ul style="margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;color:#cbd5e1;font-size:.9rem">
+          <li style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 14px">📷 Photo landmark recognition</li>
+          <li style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 14px">🔊 Narrated audio tours</li>
+          <li style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 14px">📍 Near me now</li>
+          <li style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 14px">🗣️ 7 languages</li>
+        </ul>
+        <p style="margin:0;color:#64748b;font-size:.85rem">Loading the app…</p>
+      </div>
+    </div>
     <script type="module" src="./index.tsx"></script>
 </body>
 </html>
