@@ -133,8 +133,15 @@ function drawBrand(ctx: CanvasRenderingContext2D, x: number, y: number) {
   ctx.fillStyle = '#ffffff';
   ctx.fillText('Snap', tx, ty);
   const snapW = ctx.measureText('Snap').width;
-  ctx.fillStyle = '#22D3EE';
-  ctx.fillText('Tour', tx + snapW, ty);
+  // "Tour" uses the same indigo→purple gradient as the home-page wordmark
+  // (Tailwind bg-gradient-to-r from-indigo-400 to-purple-400).
+  const tourX = tx + snapW;
+  const tourW = ctx.measureText('Tour').width;
+  const tg = ctx.createLinearGradient(tourX, 0, tourX + tourW, 0);
+  tg.addColorStop(0, '#818cf8'); // indigo-400
+  tg.addColorStop(1, '#c084fc'); // purple-400
+  ctx.fillStyle = tg;
+  ctx.fillText('Tour', tourX, ty);
   ctx.restore();
 }
 
