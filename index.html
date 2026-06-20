@@ -96,23 +96,48 @@
   }
 }
 </script>
+<style>
+  /* Branded splash spinner (used by the pre-render fallback in #root, below).
+     Scoped names so nothing clashes with the app's CSS bundle. */
+  @keyframes snaptour-spin { to { transform: rotate(360deg); } }
+  .snaptour-spinner { display:inline-block; width:20px; height:20px; border-radius:50%;
+    border:2.5px solid rgba(148,163,184,.25); border-top-color:#22d3ee;
+    animation:snaptour-spin .8s linear infinite; }
+  @media (prefers-reduced-motion: reduce) { .snaptour-spinner { animation:none; } }
+</style>
 </head>
   <body>
     <div id="root">
-      <!-- Pre-render fallback: real content for crawlers and no-JS visitors, and a brief
-           branded splash until the app mounts (React's createRoot replaces #root on load).
-           Mirrors the app's actual purpose — not cloaking. Inline styles so it renders even
-           before the CSS bundle loads. -->
-      <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px;background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,-apple-system,sans-serif;text-align:center;box-sizing:border-box">
-        <h1 style="margin:0;font-size:clamp(1.4rem,5vw,2rem);font-weight:800;color:#fff;line-height:1.2">SnapTour — AI Landmark Recognition &amp; Audio Tours</h1>
-        <p style="margin:0;max-width:34rem;color:#94a3b8;line-height:1.6">Point your camera at any monument or landmark and SnapTour identifies it instantly, then tells its story with a narrated, AI-generated audio tour. Available in 7 languages, with GPS &ldquo;near me&rdquo; discovery, a travel passport, a map of the places you&rsquo;ve visited, and offline access to your saved tours.</p>
-        <ul style="margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;color:#cbd5e1;font-size:.9rem">
-          <li style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 14px">📷 Photo landmark recognition</li>
-          <li style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 14px">🔊 Narrated audio tours</li>
-          <li style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 14px">📍 Near me now</li>
-          <li style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 14px">🗣️ 7 languages</li>
+      <!-- Pre-render fallback: a branded loading splash that also serves as crawler / no-JS
+           content. React's createRoot replaces #root on mount. Inline styles + a tiny scoped
+           <style> in <head> (spinner keyframes) so it renders before the CSS bundle loads.
+           The SEO copy (heading, description, feature list) stays in the DOM — just visually
+           de-emphasised so it reads as an intentional splash, not a raw text page. -->
+      <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:32px;background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,-apple-system,sans-serif;text-align:center;box-sizing:border-box">
+        <!-- Brand mark — mirrors components/Logo.tsx, inlined so it paints instantly -->
+        <svg width="58" height="70" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="filter:drop-shadow(0 8px 22px rgba(6,182,212,.35))">
+          <path d="M90 50C90 75 50 115 50 115C50 115 10 75 10 50C10 25 30 10 50 10C70 10 90 25 90 50Z" fill="#F97316" transform="translate(5,5)"/>
+          <path d="M90 50C90 75 50 115 50 115C50 115 10 75 10 50C10 25 30 10 50 10C70 10 90 25 90 50Z" fill="#06B6D4"/>
+          <path d="M25 30C25 30 35 20 50 20C65 20 70 25 70 25" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity="0.3"/>
+          <circle cx="50" cy="50" r="25" fill="#0F172A"/>
+          <path d="M45 40L60 50L45 60V40Z" fill="#22D3EE" stroke="#06B6D4" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="50" cy="50" r="20" stroke="#1E293B" stroke-width="2"/>
+        </svg>
+        <h1 style="margin:0;font-size:clamp(1.7rem,6vw,2.3rem);font-weight:800;color:#fff;letter-spacing:-.02em;line-height:1.1">SnapTour</h1>
+        <p style="margin:0;font-size:clamp(.95rem,3.5vw,1.1rem);font-weight:600;color:#67e8f9">AI Landmark Recognition &amp; Audio Tours</p>
+        <!-- Loading indicator -->
+        <div style="display:flex;align-items:center;gap:10px;margin-top:2px;color:#94a3b8;font-size:.9rem">
+          <span class="snaptour-spinner" aria-hidden="true"></span>
+          <span>Loading the app…</span>
+        </div>
+        <!-- SEO copy: kept for crawlers / no-JS, visually secondary -->
+        <p style="margin:8px 0 0;max-width:32rem;color:#64748b;font-size:.85rem;line-height:1.6">Point your camera at any monument or landmark and SnapTour identifies it instantly, then tells its story with a narrated, AI-generated audio tour. Available in 7 languages, with GPS &ldquo;near me&rdquo; discovery, a travel passport, a map of the places you&rsquo;ve visited, and offline access to your saved tours.</p>
+        <ul style="margin:4px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;color:#94a3b8;font-size:.78rem">
+          <li style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:5px 12px">📷 Photo landmark recognition</li>
+          <li style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:5px 12px">🔊 Narrated audio tours</li>
+          <li style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:5px 12px">📍 Near me now</li>
+          <li style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:5px 12px">🗣️ 7 languages</li>
         </ul>
-        <p style="margin:0;color:#64748b;font-size:.85rem">Loading the app…</p>
       </div>
     </div>
     <script type="module" src="./index.tsx"></script>
