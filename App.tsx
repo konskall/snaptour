@@ -53,14 +53,18 @@ const App: React.FC = () => {
   const [langCode, setLangCode] = useState<string>(() => {
     const isSupported = (c?: string | null): c is string => !!c && LANGUAGES.some(l => l.code === c);
     try {
-      // 1) A returning user's explicit choice always wins.
-      const saved = localStorage.getItem('snaptour_lang');
-      if (isSupported(saved)) return saved;
+      // 1) A DELIBERATE in-app choice wins — gated on the manual flag so a previously
+      //    auto-detected value can never freeze the language (the old build persisted
+      //    the detected code on every load, which is why device-language stopped applying).
+      if (localStorage.getItem('snaptour_lang_manual')) {
+        const saved = localStorage.getItem('snaptour_lang');
+        if (isSupported(saved)) return saved;
+      }
       // 2) A shared deep link can carry the sender's language (?hl=) so the recipient
-      //    opens it in that language instead of defaulting to English.
+      //    opens it in that language instead of the device default.
       const hl = new URLSearchParams(window.location.search).get('hl');
       if (isSupported(hl)) return hl;
-      // 3) Otherwise match the device language (e.g. a Greek phone opens in Greek).
+      // 3) Otherwise follow the device language; English if it isn't one we support.
       const base = (navigator.language || 'en').toLowerCase().split('-')[0];
       return isSupported(base) ? base : 'en';
     } catch { return 'en'; }
@@ -107,11 +111,12 @@ const App: React.FC = () => {
   const t = translations[langCode] || translations['en'];
   const currentLangName = LANGUAGES.find(l => l.code === langCode)?.name || 'English';
 
-  // Keep the document language in sync for a11y / correct hyphenation & voice selection,
-  // and remember the choice across refreshes / sessions.
+  // Keep the document language in sync for a11y / correct hyphenation & voice selection.
+  // NOTE: we deliberately do NOT persist langCode here — auto-detected values must stay
+  // ephemeral so the app keeps following the device language. Only a deliberate menu pick
+  // (handleLanguageChange) is persisted.
   useEffect(() => {
     document.documentElement.lang = langCode;
-    try { localStorage.setItem('snaptour_lang', langCode); } catch { /* storage unavailable */ }
   }, [langCode]);
 
   // Persist the current view so a refresh restores history / a landmark result
@@ -673,6 +678,12 @@ const App: React.FC = () => {
   const handleLanguageChange = (code: string) => {
     setLangCode(code);
     setIsLangMenuOpen(false);
+    // Persist as a DELIBERATE choice: it sticks across sessions and overrides device-language
+    // detection on the next load (the manual flag is what the initializer checks for).
+    try {
+      localStorage.setItem('snaptour_lang', code);
+      localStorage.setItem('snaptour_lang_manual', '1');
+    } catch { /* storage unavailable */ }
   };
 
   // Memoized so an unrelated re-render (toast, menu toggle, audio state) doesn't recreate
