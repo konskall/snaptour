@@ -179,6 +179,23 @@ const App: React.FC = () => {
     return () => window.clearTimeout(tid);
   }, []);
 
+  // Warm Firebase's popup/redirect resolver during idle. `auth` is initialized WITHOUT a resolver
+  // to keep iframe.js off the critical load path (see services/firebase.ts), so it would otherwise
+  // load lazily on the first sign-in tap. On iOS Safari / standalone PWA, window.open() is only
+  // honoured synchronously inside the tap — if the iframe still has to be fetched first, the gesture
+  // expires and iOS blocks the popup, which is why login used to need a SECOND tap. Pre-loading the
+  // resolver here (off the critical path) lets the first real tap open the popup synchronously.
+  useEffect(() => {
+    if (!auth) return;
+    if (sessionStorage.getItem('st_redirecting')) return; // the redirect-return effect inits it instead
+    let cancelled = false;
+    const warm = () => { if (!cancelled && auth) getRedirectResult(auth, browserPopupRedirectResolver).catch(() => {}); };
+    const ric = (window as any).requestIdleCallback as undefined | ((cb: () => void) => number);
+    if (ric) { const id = ric(warm); return () => { cancelled = true; (window as any).cancelIdleCallback?.(id); }; }
+    const tid = window.setTimeout(warm, 2500);
+    return () => { cancelled = true; window.clearTimeout(tid); };
+  }, []);
+
   // Subscribe to Firebase auth state (handles session persistence + redirect return)
   const historyUnsubRef = useRef<null | (() => void)>(null);
   useEffect(() => {
@@ -272,6 +289,21 @@ const App: React.FC = () => {
         await signInWithPopup(auth, provider, browserPopupRedirectResolver);    // onAuthStateChanged handles the rest
       }
     } catch (err) {
+      const code = (err as { code?: string })?.code || '';
+      // User closed/cancelled the chooser (or a fast double-tap superseded the first call) — not a
+      // real failure, so don't alarm them with an error toast; they can just tap again.
+      if (/cancelled-popup-request|popup-closed-by-user/i.test(code)) return;
+      // iOS Safari / standalone PWA can still refuse the popup outright (it must open synchronously
+      // inside the tap). Fall back to a full-page redirect rather than failing the login.
+      if (/popup-blocked|web-storage-unsupported|operation-not-supported/i.test(code)) {
+        try {
+          sessionStorage.setItem('st_redirecting', '1');
+          await signInWithRedirect(auth, provider, browserPopupRedirectResolver);
+          return;
+        } catch (e) {
+          console.error('Redirect fallback failed', e);
+        }
+      }
       console.error('Google sign-in failed', err);
       showToast(t.signInFailed, 'error');
     }
