@@ -46,6 +46,84 @@ async function verifyFirebaseToken(token, projectId) {
   }
 }
 
+// ---- Share-link route (GET /s) --------------------------------------------------------
+// A shared SnapTour link is routed through this Worker so social crawlers get a
+// per-landmark Open Graph preview (photo + name) — something a static GitHub Pages SPA
+// can't give them (crawlers don't run the app's JS). Real users are 302-redirected to the
+// app's deep link so it opens that landmark. Needs no secret, no token, no KV.
+const DEFAULT_APP_URL = 'https://konskall.github.io/snaptour/';
+const DEFAULT_OG_IMAGE = 'https://konskall.github.io/snaptour/ogsnaptour.jpg?v=4';
+const CRAWLER_RE = /facebookexternalhit|facebot|twitterbot|telegrambot|telegram|whatsapp|slackbot|slack-imgproxy|discordbot|linkedinbot|pinterest|redditbot|googlebot|google-inspectiontool|bingbot|applebot|vkshare|embedly|quora|showyoubot|outbrain|skypeuripreview|nuzzel|flipboard|bitlybot|tumblr|mastodon|line-poker|yandex|petalbot/i;
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// Best-effort representative image for a landmark, from Wikipedia (edge-cached). Returns null
+// on miss so the caller can fall back to the default SnapTour social image.
+async function wikiImage(name) {
+  const q = (name || '').replace(/\s*\(.*?\)\s*/g, ' ').split(',')[0].trim();
+  if (!q) return null;
+  const lang = /[Ͱ-Ͽ]/.test(q) ? 'el' : 'en'; // Greek → el.wikipedia, else en
+  try {
+    const res = await fetch(
+      `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(q)}`,
+      { headers: { 'User-Agent': 'SnapTour/1.0 (link preview)' }, cf: { cacheTtl: 86400, cacheEverything: true } },
+    );
+    if (!res.ok) return null;
+    const j = await res.json();
+    return j?.originalimage?.source || j?.thumbnail?.source || null;
+  } catch {
+    return null;
+  }
+}
+
+async function handleShare(url, req, env) {
+  const appBase = env.APP_URL || DEFAULT_APP_URL;
+  const name = (url.searchParams.get('l') || '').slice(0, 200);
+  const hl = (url.searchParams.get('hl') || '').slice(0, 5);
+
+  // The app deep link the recipient ultimately opens.
+  const dest = new URL(appBase);
+  if (name) dest.searchParams.set('l', name);
+  if (hl) dest.searchParams.set('hl', hl);
+  const destStr = dest.toString();
+
+  // Humans → straight to the app. Only crawlers get the OG HTML.
+  if (!CRAWLER_RE.test(req.headers.get('User-Agent') || '')) {
+    return Response.redirect(destStr, 302);
+  }
+
+  const title = name ? `${name} · SnapTour` : 'SnapTour - AI Landmark Recognition & Audio Tours';
+  const desc = name
+    ? `Discover ${name} with SnapTour — AI landmark recognition & narrated audio tours.`
+    : 'Discover landmark history instantly with AI recognition & narrated audio tours.';
+  const image = (await wikiImage(name)) || DEFAULT_OG_IMAGE;
+
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)}</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SnapTour">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(desc)}">
+<meta property="og:image" content="${esc(image)}">
+<meta property="og:url" content="${esc(destStr)}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${esc(title)}">
+<meta name="twitter:description" content="${esc(desc)}">
+<meta name="twitter:image" content="${esc(image)}">
+<link rel="canonical" href="${esc(destStr)}">
+<meta http-equiv="refresh" content="0; url=${esc(destStr)}">
+</head><body>
+<p>Opening ${esc(name || 'SnapTour')}… <a href="${esc(destStr)}">Tap here if it doesn't open.</a></p>
+<script>location.replace(${JSON.stringify(destStr)});</script>
+</body></html>`;
+
+  return new Response(html, {
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=86400' },
+  });
+}
+
 function corsHeaders(req, allowed) {
   const origin = req.headers.get('Origin') || '';
   const headers = {
@@ -69,6 +147,12 @@ function corsHeaders(req, allowed) {
 
 export default {
   async fetch(req, env) {
+    // Share-link route: handled before the Gemini-proxy auth/CORS path (no token needed).
+    const url = new URL(req.url);
+    if (req.method === 'GET' && url.pathname === '/s') {
+      return handleShare(url, req, env);
+    }
+
     const allowed = (env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
     const cors = corsHeaders(req, allowed);
 
