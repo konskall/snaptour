@@ -27,7 +27,7 @@ export const createThumbnail = async (base64Image: string): Promise<string> => {
 
       if (scale >= 1) {
         // Image is already small enough, just return stripped base64
-        resolve(base64Image.replace(/^data:image\/\w+;base64,/, ""));
+        resolve(base64Image.replace(/^data:[^,]*,/, ""));
         return;
       }
 
@@ -37,7 +37,7 @@ export const createThumbnail = async (base64Image: string): Promise<string> => {
 
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        resolve(base64Image.replace(/^data:image\/\w+;base64,/, ""));
+        resolve(base64Image.replace(/^data:[^,]*,/, ""));
         return;
       }
 
@@ -49,7 +49,7 @@ export const createThumbnail = async (base64Image: string): Promise<string> => {
 
     img.onerror = () => {
        // Fallback to original if loading fails
-       resolve(base64Image.replace(/^data:image\/\w+;base64,/, ""));
+       resolve(base64Image.replace(/^data:[^,]*,/, ""));
     };
   });
 };
@@ -65,7 +65,7 @@ export const createScaledImage = async (
 ): Promise<{ base64: string; mimeType: string }> => {
   return new Promise((resolve) => {
     const origMime = base64Image.match(/^data:([^;]+)/)?.[1] || 'image/jpeg';
-    const orig = () => ({ base64: base64Image.replace(/^data:image\/\w+;base64,/, ''), mimeType: origMime });
+    const orig = () => ({ base64: base64Image.replace(/^data:[^,]*,/, ''), mimeType: origMime });
     const img = new Image();
     img.src = base64Image.startsWith('data:') ? base64Image : `data:image/jpeg;base64,${base64Image}`;
     img.onload = () => {

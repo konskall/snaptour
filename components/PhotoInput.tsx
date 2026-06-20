@@ -10,6 +10,9 @@ interface PhotoInputProps {
 
 export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, onNearMe, t }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Touch devices honor the camera <input capture>; on desktop `capture` is ignored, so the
+  // camera button would just open the same file picker as Upload — show it only on touch.
+  const isCoarsePointer = typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, source: 'camera' | 'upload') => {
     if (e.target.files && e.target.files[0]) {
@@ -59,7 +62,8 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, onNearMe,
 
         <div className="space-y-4">
           
-          {/* Mobile camera trigger (FIRST - GRADIENT) */}
+          {/* Camera trigger (touch only) — see isCoarsePointer above */}
+          {isCoarsePointer && (
           <div className="relative">
             <input
               type="file"
@@ -77,6 +81,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, onNearMe,
               <span>{t.cameraBtn}</span>
             </label>
           </div>
+          )}
 
           {/* Upload Button (SECOND - SLATE) — button + its hidden input wrapped
               together so there's no empty layout child disturbing the spacing rhythm. */}

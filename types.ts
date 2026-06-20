@@ -189,4 +189,7 @@ export interface Translation {
   hdVoiceLoading: string;
   hdVoicePause: string;
   gpsTooltip: string;
+  loading: string;
+  filterByCountry: string;
+  filterByType: string;
 }

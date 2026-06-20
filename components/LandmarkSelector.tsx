@@ -74,7 +74,7 @@ export const LandmarkSelector: React.FC<LandmarkSelectorProps> = ({ identificati
                 className="w-full group relative flex items-center justify-between bg-slate-700/50 hover:bg-indigo-600 text-left text-slate-200 hover:text-white font-medium py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] border border-slate-600 hover:border-indigo-500"
               >
                 <span>{option}</span>
-                <CheckCircle size={18} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                <CheckCircle size={18} className="opacity-40 group-hover:opacity-100 transition-opacity" />
               </button>
             ))}
           </div>

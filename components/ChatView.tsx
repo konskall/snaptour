@@ -137,6 +137,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ landmarkName, onClose, t, la
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder={t.chatPlaceholder}
+              aria-label={t.chatPlaceholder}
               style={{ fontSize: '16px' }} // Force 16px to prevent iOS Zoom
               className="flex-1 bg-slate-900 border border-slate-600 rounded-full px-4 py-3 text-base text-white focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400"
             />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Suspense, lazy } from 'react';
 import { PhotoInput } from './components/PhotoInput';
 import { TourCard } from './components/TourCard';
 import { LandmarkSelector } from './components/LandmarkSelector';
@@ -41,10 +41,13 @@ function loadPersistedView(): { state: AppState; result: AnalysisResult | null; 
 }
 
 const App: React.FC = () => {
-  const [state, setState] = useState<AppState>(() => loadPersistedView().state);
-  const [selectedImage, setSelectedImage] = useState<string | null>(() => loadPersistedView().selectedImage);
+  // Parse the persisted view ONCE (it reads sessionStorage + may include a base64 image),
+  // instead of three times across the lazy useState initializers.
+  const persistedView = useMemo(() => loadPersistedView(), []);
+  const [state, setState] = useState<AppState>(persistedView.state);
+  const [selectedImage, setSelectedImage] = useState<string | null>(persistedView.selectedImage);
   const [identificationResult, setIdentificationResult] = useState<LandmarkIdentification | null>(null);
-  const [result, setResult] = useState<AnalysisResult | null>(() => loadPersistedView().result);
+  const [result, setResult] = useState<AnalysisResult | null>(persistedView.result);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [langCode, setLangCode] = useState<string>(() => {
     try { return localStorage.getItem('snaptour_lang') || 'en'; } catch { return 'en'; }
@@ -58,6 +61,7 @@ const App: React.FC = () => {
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(false);
   const [nearbyDenied, setNearbyDenied] = useState(false);
+  const [nearbyError, setNearbyError] = useState(false); // API failure (vs genuinely none nearby)
   const [missingCreds, setMissingCreds] = useState<string[]>([]);
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
   // In-app toast (replaces native alert()) for transient notices like sign-in errors.
@@ -200,7 +204,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: PointerEvent) => {
       if (langMenuRef.current && !langMenuRef.current.contains(event.target as Node)) {
         setIsLangMenuOpen(false);
       }
@@ -208,9 +212,10 @@ const App: React.FC = () => {
         setIsUserMenuOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
+    // pointerdown (not mousedown) so a touch tap elsewhere also dismisses the dropdowns.
+    document.addEventListener('pointerdown', handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('pointerdown', handleClickOutside);
     };
   }, []);
 
@@ -295,6 +300,7 @@ const App: React.FC = () => {
     setResult(null);
     setNearbyPlaces([]);
     setNearbyDenied(false);
+    setNearbyError(false);
     setNearbyLoading(true);
     setState(AppState.NEARBY);
     const coords = await getDeviceLocation();
@@ -304,6 +310,11 @@ const App: React.FC = () => {
       return;
     }
     const places = await getNearbyLandmarks(coords, currentLangName);
+    if (places === null) { // a real failure (network / quota / parse), not "none nearby"
+      setNearbyError(true);
+      setNearbyLoading(false);
+      return;
+    }
     setNearbyPlaces(places);
     setNearbyLoading(false);
   };
@@ -748,6 +759,8 @@ const App: React.FC = () => {
             places={nearbyPlaces}
             loading={nearbyLoading}
             denied={nearbyDenied}
+            error={nearbyError}
+            onRetry={handleNearMe}
             onSelect={(name) => fetchDetails(name, undefined, undefined, { save: true })}
             onClose={resetApp}
             t={t}
@@ -777,8 +790,9 @@ const App: React.FC = () => {
 
         {state === AppState.VIEWING_MAP && (
           <Suspense fallback={
-            <div className="flex items-center justify-center h-full pt-header">
-              <Loader2 size={32} className="animate-spin text-emerald-400" />
+            <div role="status" className="flex items-center justify-center h-full pt-header">
+              <Loader2 size={32} aria-hidden="true" className="animate-spin text-emerald-400" />
+              <span className="sr-only">{t.loading}</span>
             </div>
           }>
             <VisitedMap

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { Home, Award, MapPin, Globe2, Flag, Mountain, X, ChevronRight } from 'lucide-react';
 import { HistoryItem, Translation } from '../types';
 import { buildPassport, getContinent, localizeContinent } from '../services/geoUtils';
@@ -61,13 +61,17 @@ export const PassportView: React.FC<PassportViewProps> = ({ items, onClose, onSe
 
   const [modal, setModal] = useState<null | 'landmarks' | 'countries' | 'continents'>(null);
 
-  const { landmarks, countries, continents } = buildPassport(items);
+  // Memoized so toggling the list modal (state change) doesn't re-aggregate the whole history.
+  const { landmarks, countries, continents } = useMemo(() => buildPassport(items), [items]);
 
   // Continent rows: localized name + how many distinct countries you've visited there.
-  const continentRows = continents.map((cont) => ({
-    name: localizeContinent(cont, langCode),
-    count: countries.filter((c) => getContinent(c.code) === cont).length,
-  }));
+  const continentRows = useMemo(
+    () => continents.map((cont) => ({
+      name: localizeContinent(cont, langCode),
+      count: countries.filter((c) => getContinent(c.code) === cont).length,
+    })),
+    [continents, countries, langCode],
+  );
 
   const modalTitle = modal === 'landmarks' ? t.statLandmarks : modal === 'countries' ? t.statCountries : t.statContinents;
 

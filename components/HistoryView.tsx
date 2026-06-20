@@ -175,7 +175,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
             <select
               value={country}
               onChange={(e) => setCountry(e.target.value)}
-              aria-label={t.filterAll}
+              aria-label={t.filterByCountry}
               className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-full px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 max-w-[35vw]"
             >
               <option value="">{t.filterAll}</option>
@@ -186,7 +186,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              aria-label={t.filterAll}
+              aria-label={t.filterByType}
               className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-full px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 max-w-[35vw]"
             >
               <option value="">{t.filterAll}</option>
@@ -214,7 +214,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
               <button
                 type="button"
                 onClick={() => onSelect(item)}
-                aria-label={item.landmarkName}
+                aria-label={`${item.landmarkName}, ${new Date(item.timestamp).toLocaleDateString()}`}
                 className="w-full text-left bg-slate-800/50 border border-slate-700 rounded-2xl overflow-hidden flex flex-col sm:flex-row hover:bg-slate-800 transition-colors group cursor-pointer active:scale-[0.99] transition-transform"
               >
                 {/* Image Container */}

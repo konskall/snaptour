@@ -380,7 +380,9 @@ Be accurate. Leave a field empty ("") rather than guessing.`,
 
 // 7. "Near me now": famous landmarks around the user's current location, WITHOUT a photo.
 // Reuses the same details/chat pipeline once the user picks one. Non-grounded JSON call.
-export async function getNearbyLandmarks(coords: { lat: number; lng: number }, language: string): Promise<NearbyPlace[]> {
+// Returns the list on success (possibly empty = genuinely nothing nearby), or null on a
+// real failure (network/quota/parse) so the UI can distinguish failure from "none found".
+export async function getNearbyLandmarks(coords: { lat: number; lng: number }, language: string): Promise<NearbyPlace[] | null> {
   try {
     const ai = await getAI();
     const { Type } = await loadSdk();
@@ -419,6 +421,6 @@ Only include real, well-known places that genuinely exist near these coordinates
     return [];
   } catch (error) {
     console.warn("Failed to get nearby landmarks:", error);
-    return [];
+    return null;
   }
 }

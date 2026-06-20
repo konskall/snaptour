@@ -102,6 +102,9 @@ export const translations: Record<string, Translation> = {
     hdVoiceLoading: "Loading HD voice",
     hdVoicePause: "Pause HD voice",
     gpsTooltip: "Identified using your location",
+    loading: "Loading…",
+    filterByCountry: "Filter by country",
+    filterByType: "Filter by type",
     listen: "Listen",
     pause: "Pause"
   },
@@ -196,6 +199,9 @@ export const translations: Record<string, Translation> = {
     hdVoiceLoading: "Cargando voz HD",
     hdVoicePause: "Pausar voz HD",
     gpsTooltip: "Identificado con tu ubicación",
+    loading: "Cargando…",
+    filterByCountry: "Filtrar por país",
+    filterByType: "Filtrar por tipo",
     listen: "Escuchar",
     pause: "Pausa"
   },
@@ -290,6 +296,9 @@ export const translations: Record<string, Translation> = {
     hdVoiceLoading: "Chargement de la voix HD",
     hdVoicePause: "Mettre en pause la voix HD",
     gpsTooltip: "Identifié grâce à votre position",
+    loading: "Chargement…",
+    filterByCountry: "Filtrer par pays",
+    filterByType: "Filtrer par type",
     listen: "Écouter",
     pause: "Pause"
   },
@@ -384,6 +393,9 @@ export const translations: Record<string, Translation> = {
     hdVoiceLoading: "HD-Stimme wird geladen",
     hdVoicePause: "HD-Stimme pausieren",
     gpsTooltip: "Anhand deines Standorts erkannt",
+    loading: "Wird geladen…",
+    filterByCountry: "Nach Land filtern",
+    filterByType: "Nach Typ filtern",
     listen: "Anhören",
     pause: "Pause"
   },
@@ -478,6 +490,9 @@ export const translations: Record<string, Translation> = {
     hdVoiceLoading: "正在加载高清语音",
     hdVoicePause: "暂停高清语音",
     gpsTooltip: "根据您的位置识别",
+    loading: "加载中…",
+    filterByCountry: "按国家筛选",
+    filterByType: "按类型筛选",
     listen: "收听",
     pause: "暂停"
   },
@@ -572,6 +587,9 @@ export const translations: Record<string, Translation> = {
     hdVoiceLoading: "HD आवाज़ लोड हो रही है",
     hdVoicePause: "HD आवाज़ रोकें",
     gpsTooltip: "आपके स्थान से पहचाना गया",
+    loading: "लोड हो रहा है…",
+    filterByCountry: "देश के अनुसार छाँटें",
+    filterByType: "प्रकार के अनुसार छाँटें",
     listen: "सुनें",
     pause: "रोकें"
   },
@@ -666,6 +684,9 @@ export const translations: Record<string, Translation> = {
     hdVoiceLoading: "Φόρτωση φωνής HD",
     hdVoicePause: "Παύση φωνής HD",
     gpsTooltip: "Εντοπίστηκε με την τοποθεσία σας",
+    loading: "Φόρτωση…",
+    filterByCountry: "Φίλτρο ανά χώρα",
+    filterByType: "Φίλτρο ανά τύπο",
     listen: "Άκου",
     pause: "Παύση"
   }

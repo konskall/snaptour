@@ -6,6 +6,8 @@ interface NearbyLandmarksProps {
   places: NearbyPlace[];
   loading: boolean;
   denied: boolean;       // location permission denied / unavailable
+  error?: boolean;       // the lookup itself failed (network / quota), distinct from "none found"
+  onRetry?: () => void;
   onSelect: (name: string) => void;
   onClose: () => void;
   t: Translation;
@@ -13,7 +15,7 @@ interface NearbyLandmarksProps {
 
 // "Near me now": famous landmarks around the user's current location, discovered via
 // device GPS without taking a photo. Picking one runs the normal details pipeline.
-export const NearbyLandmarks: React.FC<NearbyLandmarksProps> = ({ places, loading, denied, onSelect, onClose, t }) => {
+export const NearbyLandmarks: React.FC<NearbyLandmarksProps> = ({ places, loading, denied, error = false, onRetry, onSelect, onClose, t }) => {
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => { headingRef.current?.focus(); }, []);
 
@@ -44,9 +46,22 @@ export const NearbyLandmarks: React.FC<NearbyLandmarksProps> = ({ places, loadin
 
           {/* Body */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-3">
-              <Loader2 size={28} className="animate-spin text-emerald-400" />
+            <div role="status" className="flex flex-col items-center justify-center py-12 text-slate-400 gap-3">
+              <Loader2 size={28} aria-hidden="true" className="animate-spin text-emerald-400" />
               <p className="text-sm">{t.locating}</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center gap-4">
+              <Compass size={40} className="text-slate-500" />
+              <p className="text-sm text-slate-400 max-w-xs">{t.error}</p>
+              {onRetry && (
+                <button
+                  onClick={onRetry}
+                  className="mt-1 py-2.5 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors"
+                >
+                  {t.tryAgain}
+                </button>
+              )}
             </div>
           ) : denied ? (
             <div className="flex flex-col items-center justify-center py-10 text-center gap-4">

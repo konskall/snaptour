@@ -70,6 +70,11 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
 
   // Native TTS Ref to prevent garbage collection and allow pause/resume
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  // Pending 'voiceschanged' listener — tracked so repeated taps (before voices load) don't
+  // stack duplicate listeners that each replay the narration.
+  const pendingVoicesHandlerRef = useRef<(() => void) | null>(null);
+  // Result heading — focused when the card opens so screen-reader users land in the card.
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
   // Initialize audio context lazily
   const getAudioContext = () => {
@@ -180,10 +185,17 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
      };
 
      if (window.speechSynthesis.getVoices().length === 0) {
+         // Drop any handler still pending from an earlier tap so we don't stack duplicates
+         // (each would replay the narration once voices load); null it when it fires.
+         if (pendingVoicesHandlerRef.current) {
+             window.speechSynthesis.removeEventListener('voiceschanged', pendingVoicesHandlerRef.current);
+         }
          const h = () => {
              window.speechSynthesis.removeEventListener('voiceschanged', h);
+             pendingVoicesHandlerRef.current = null;
              setVoiceAndSpeak();
          };
+         pendingVoicesHandlerRef.current = h;
          window.speechSynthesis.addEventListener('voiceschanged', h);
      } else {
          setVoiceAndSpeak();
@@ -246,8 +258,11 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
         source.buffer = result.audioBuffer;
         source.connect(ctx.destination);
         
-        // STEP 3: Calculate offset
-        const offset = pauseTimeRef.current % result.audioBuffer.duration;
+        // STEP 3: Calculate offset. Clamp (not modulo): if paused in the final fraction of
+        // a second, currentTime - startTime can be >= duration (scheduling slop) and % would
+        // wrap it to a tiny positive offset, restarting a few ms in instead of from 0.
+        let offset = pauseTimeRef.current;
+        if (!(offset > 0) || offset >= result.audioBuffer.duration - 0.05) offset = 0;
         
         // STEP 4: Start
         source.start(0, offset);
@@ -383,6 +398,10 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
       }
       window.speechSynthesis.cancel();
       utteranceRef.current = null;
+      if (pendingVoicesHandlerRef.current) {
+        window.speechSynthesis.removeEventListener('voiceschanged', pendingVoicesHandlerRef.current);
+        pendingVoicesHandlerRef.current = null;
+      }
     };
   }, []);
 
@@ -394,6 +413,12 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
       stopAiAudio();
       window.speechSynthesis.cancel();
       utteranceRef.current = null;
+  }, [result.landmarkName]);
+
+  // Move focus to the result heading when the card opens (and on each new landmark) so
+  // screen-reader users land in the card. preventScroll avoids a visual jump.
+  useEffect(() => {
+    titleRef.current?.focus({ preventScroll: true });
   }, [result.landmarkName]);
 
   // Reset distance state per landmark, then silently fetch it ONLY if geolocation
@@ -483,7 +508,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
           </div>
 
           {/* Title — own full-width row so long names wrap minimally. */}
-          <h2 id="tour-title" className="text-xl sm:text-3xl font-bold text-white leading-tight break-words">{result.landmarkName}</h2>
+          <h2 ref={titleRef} tabIndex={-1} id="tour-title" className="text-xl sm:text-3xl font-bold text-white leading-tight break-words outline-none">{result.landmarkName}</h2>
 
           {/* Audio & Chat controls — a primary full-width "Listen" action (the instant
               native voice) plus secondary icon buttons, so the row fills the width with
@@ -493,7 +518,6 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
               <button
                 onClick={handleNativePlay}
                 aria-label={isPlaying && activeEngine === 'native' ? t.pause : t.listen}
-                aria-pressed={isPlaying && activeEngine === 'native'}
                 className="flex-1 min-w-0 h-12 rounded-full flex items-center justify-center gap-2 font-semibold shadow-lg transition-all hover:scale-[1.02] bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/30"
               >
                 {isPlaying && activeEngine === 'native'
@@ -517,7 +541,6 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                 onClick={handleAiPlay}
                 disabled={isAudioLoading}
                 aria-label={isAudioLoading ? t.hdVoiceLoading : (isPlaying && activeEngine === 'ai' ? t.hdVoicePause : t.hdVoice)}
-                aria-pressed={isPlaying && activeEngine === 'ai'}
                 title={t.hdVoice}
                 className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center border transition-all hover:scale-105 relative disabled:cursor-default ${
                   activeEngine === 'ai'
@@ -658,7 +681,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                   {rows.map((row, i) => (
                     <div key={i} className="flex items-start gap-3">
                       <span className="text-indigo-400 mt-0.5 shrink-0">{row.icon}</span>
-                      <dt className="text-xs text-slate-500 w-20 shrink-0 pt-0.5">{row.label}</dt>
+                      <dt className="text-xs text-slate-400 w-20 shrink-0 pt-0.5">{row.label}</dt>
                       <dd className="text-sm text-slate-200 flex-1 min-w-0">{row.value}</dd>
                     </div>
                   ))}
@@ -685,7 +708,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                 </span>
               );
             } else if (geoState === 'loading') {
-              distEl = <span className="text-slate-400 inline-flex items-center gap-1.5"><Loader2 size={14} className="animate-spin" />…</span>;
+              distEl = <span role="status" className="text-slate-400 inline-flex items-center gap-1.5"><Loader2 size={14} aria-hidden="true" className="animate-spin" /><span className="sr-only">{t.loading}</span>…</span>;
             } else if (geoState === 'denied') {
               distEl = <span className="text-slate-500 text-xs">{t.distanceUnavailable}</span>;
             } else {
@@ -729,6 +752,8 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                  src={`https://www.google.com/maps?q=${encodeURIComponent(result.landmarkName)}&output=embed`}
                  title={`${t.viewMap}: ${result.landmarkName}`}
                  allowFullScreen
+                 tabIndex={-1}
+                 sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
                  className="opacity-60 group-hover:opacity-100 transition-opacity"
                ></iframe>
                <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]" />
@@ -744,8 +769,8 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                  {t.nearbyTitle}
                </h3>
                {loadingNearby ? (
-                 <Loader2 size={16} className="animate-spin text-slate-500" />
-               ) : nearbyPlaces.length > 0 ? (
+                 <span role="status" className="inline-flex"><Loader2 size={16} aria-hidden="true" className="animate-spin text-slate-500" /><span className="sr-only">{t.loading}</span></span>
+               ) : (
                  <div className="space-y-3">
                    {nearbyPlaces.map((place, idx) => (
                      <a
@@ -759,14 +784,12 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                           <span className="text-sm font-semibold text-slate-200 group-hover:text-indigo-300 transition-colors">
                             {place.name}
                           </span>
-                          <ExternalLink size={12} className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <ExternalLink size={12} className="text-slate-400 opacity-60 group-hover:opacity-100 transition-opacity" />
                         </div>
                         <span className="text-xs text-slate-400 line-clamp-2">{place.description}</span>
                      </a>
                    ))}
                  </div>
-               ) : (
-                 <p className="text-xs text-slate-500 italic">No nearby places found.</p>
                )}
             </div>
           )}
@@ -811,7 +834,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                           <p className="text-sm font-medium text-slate-200 truncate group-hover:text-indigo-300 transition-colors">
                             {source.web.title}
                           </p>
-                          <p className="text-xs text-slate-500 truncate">{new URL(source.web.uri).hostname}</p>
+                          <p className="text-xs text-slate-400 truncate">{new URL(source.web.uri).hostname}</p>
                         </div>
                       </a>
                     )

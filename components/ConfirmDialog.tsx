@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useDialog } from '../hooks/useDialog';
 
@@ -17,6 +17,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   title, message, confirmLabel, cancelLabel, onConfirm, onCancel, destructive = true,
 }) => {
   const ref = useDialog<HTMLDivElement>(onCancel);
+  const titleId = useId();
+  const messageId = useId();
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
@@ -25,7 +27,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         ref={ref}
         role="alertdialog"
         aria-modal="true"
-        aria-label={title}
+        aria-labelledby={titleId}
+        aria-describedby={messageId}
         tabIndex={-1}
         className="relative pointer-events-auto w-full max-w-xs bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-5 animate-fade-in"
       >
@@ -33,8 +36,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           <span className={`w-12 h-12 rounded-full grid place-items-center mb-3 ${destructive ? 'bg-red-500/15 text-red-400' : 'bg-indigo-500/15 text-indigo-400'}`}>
             <AlertTriangle size={24} />
           </span>
-          <h3 className="text-lg font-bold text-white mb-1">{title}</h3>
-          <p className="text-sm text-slate-400 mb-5 leading-relaxed">{message}</p>
+          <h3 id={titleId} className="text-lg font-bold text-white mb-1">{title}</h3>
+          <p id={messageId} className="text-sm text-slate-400 mb-5 leading-relaxed">{message}</p>
         </div>
         <div className="flex gap-2.5">
           <button

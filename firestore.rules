@@ -3,12 +3,30 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{uid}/history/{doc} {
       allow read, delete: if request.auth != null && request.auth.uid == uid;
+      // Owner-only writes, plus shape/size validation so an authed user can't write
+      // arbitrary or oversized fields under their own subtree. `request.resource.data`
+      // is the full (merged) doc on update too, so setFavorite's partial update is
+      // validated against the complete document.
       allow create, update: if request.auth != null && request.auth.uid == uid
-        && request.resource.data.thumbnail is string
-        && request.resource.data.thumbnail.size() < 700000
+        && request.resource.data.keys().hasOnly([
+             'id', 'timestamp', 'landmarkName', 'summary', 'detailedInfo',
+             'groundingSources', 'thumbnail', 'info', 'lat', 'lng', 'favorite'
+           ])
+        && request.resource.data.timestamp is number
         && request.resource.data.landmarkName is string
         && request.resource.data.landmarkName.size() < 500
-        && request.resource.data.summary is string;
+        && request.resource.data.thumbnail is string
+        && request.resource.data.thumbnail.size() < 700000
+        && request.resource.data.summary is string
+        && request.resource.data.summary.size() < 5000
+        && (!('id' in request.resource.data) || request.resource.data.id is string)
+        && (!('detailedInfo' in request.resource.data)
+              || (request.resource.data.detailedInfo is string && request.resource.data.detailedInfo.size() < 50000))
+        && (!('groundingSources' in request.resource.data) || request.resource.data.groundingSources is list)
+        && (!('info' in request.resource.data) || request.resource.data.info is map)
+        && (!('lat' in request.resource.data) || request.resource.data.lat is number)
+        && (!('lng' in request.resource.data) || request.resource.data.lng is number)
+        && (!('favorite' in request.resource.data) || request.resource.data.favorite is bool);
     }
   }
 }
