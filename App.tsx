@@ -51,7 +51,19 @@ const App: React.FC = () => {
   const [result, setResult] = useState<AnalysisResult | null>(persistedView.result);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [langCode, setLangCode] = useState<string>(() => {
-    try { return localStorage.getItem('snaptour_lang') || 'en'; } catch { return 'en'; }
+    const isSupported = (c?: string | null): c is string => !!c && LANGUAGES.some(l => l.code === c);
+    try {
+      // 1) A returning user's explicit choice always wins.
+      const saved = localStorage.getItem('snaptour_lang');
+      if (isSupported(saved)) return saved;
+      // 2) A shared deep link can carry the sender's language (?hl=) so the recipient
+      //    opens it in that language instead of defaulting to English.
+      const hl = new URLSearchParams(window.location.search).get('hl');
+      if (isSupported(hl)) return hl;
+      // 3) Otherwise match the device language (e.g. a Greek phone opens in Greek).
+      const base = (navigator.language || 'en').toLowerCase().split('-')[0];
+      return isSupported(base) ? base : 'en';
+    } catch { return 'en'; }
   });
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);

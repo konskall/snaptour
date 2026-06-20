@@ -448,7 +448,9 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
     // ?l= deep link makes the recipient's app open this landmark directly; the query
     // string is ignored by the static host, so the OG preview is unaffected.
     const base = `${window.location.origin}${window.location.pathname}`;
-    const shareUrl = `${base}?l=${encodeURIComponent(result.landmarkName)}`;
+    // Carry the language (?hl=) so the recipient opens this landmark in the same language
+    // it was shared in, instead of defaulting to English.
+    const shareUrl = `${base}?l=${encodeURIComponent(result.landmarkName)}&hl=${langCode}`;
     const text = t.shareText.replace('{name}', result.landmarkName);
 
     if (navigator.share) {
