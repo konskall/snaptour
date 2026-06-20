@@ -119,7 +119,7 @@ export const NearbyLandmarks: React.FC<NearbyLandmarksProps> = ({ places, loadin
                 <button
                   key={idx}
                   onClick={() => onSelect(place.name)}
-                  className="w-full group flex items-center gap-3 bg-slate-700/40 hover:bg-emerald-600/90 text-left rounded-xl p-3.5 border border-slate-600 hover:border-emerald-500 transition-all duration-200 hover:scale-[1.01]"
+                  className="w-full group flex items-center gap-3 bg-slate-700/40 hover:bg-emerald-600/90 text-left rounded-xl p-3.5 border border-slate-600 hover:border-emerald-500 transition-all duration-200 hover:scale-[1.01] active:scale-95"
                 >
                   <span className="shrink-0 text-emerald-400 group-hover:text-white transition-colors">
                     <MapPin size={18} />

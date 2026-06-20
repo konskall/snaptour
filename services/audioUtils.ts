@@ -25,7 +25,9 @@ export async function decodeAudioData(
   }
 
   const dataInt16 = new Int16Array(bufferToUse);
-  const frameCount = dataInt16.length / numChannels;
+  // Base the frame count on the ORIGINAL byte length so a padded odd byte (added above for
+  // Int16 alignment) doesn't introduce a stray half-sample (an audible click at the end).
+  const frameCount = Math.floor(data.byteLength / 2 / numChannels);
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
 
   for (let channel = 0; channel < numChannels; channel++) {

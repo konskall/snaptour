@@ -16,10 +16,10 @@ interface VisitedMapProps {
 // markers match the app icon. Favorites keep their amber body as a quick visual cue;
 // regular pins use the brand cyan. A divIcon avoids Leaflet's default PNG marker
 // assets, which break under bundlers. Shape mirrors components/Logo.tsx.
-const pinSvg = (favorite?: boolean) => {
-  const body = favorite ? '#f59e0b' : '#06B6D4'; // brand cyan, favorites in amber/gold
-  const depth = favorite ? '#b45309' : '#F97316'; // darker 3D edge underneath
-  return `<svg width="30" height="36" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))">
+// Pre-rendered once per variant (favorite/regular). The markup is identical for every
+// marker of the same kind, so we don't rebuild the string per history item on map mount.
+const buildPin = (body: string, depth: string) =>
+  `<svg width="30" height="36" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))">
     <path fill="${depth}" transform="translate(5,5)" d="M90 50C90 75 50 115 50 115C50 115 10 75 10 50C10 25 30 10 50 10C70 10 90 25 90 50Z"/>
     <path fill="${body}" d="M90 50C90 75 50 115 50 115C50 115 10 75 10 50C10 25 30 10 50 10C70 10 90 25 90 50Z"/>
     <path d="M25 30C25 30 35 20 50 20C65 20 70 25 70 25" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.3"/>
@@ -27,7 +27,9 @@ const pinSvg = (favorite?: boolean) => {
     <path d="M45 40L60 50L45 60V40Z" fill="#22D3EE" stroke="#06B6D4" stroke-width="2" stroke-linejoin="round"/>
     <circle cx="50" cy="50" r="20" stroke="#1E293B" stroke-width="2"/>
   </svg>`;
-};
+const PIN_REGULAR = buildPin('#06B6D4', '#F97316');  // brand cyan
+const PIN_FAVORITE = buildPin('#f59e0b', '#b45309'); // amber/gold for favorites
+const pinSvg = (favorite?: boolean) => (favorite ? PIN_FAVORITE : PIN_REGULAR);
 
 // Visited-places map: pins for every history item that has coordinates (the real
 // scan GPS when available, otherwise the model's estimate). Tapping a pin opens the

@@ -74,8 +74,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Same-origin (hashed build assets, icons, manifest) → cache-first.
-  if (url.origin === self.location.origin) {
+  // Same-origin assets UNDER THIS APP'S SCOPE (hashed build assets, icons, manifest) →
+  // cache-first. Scope-pathed so we never cache a sibling GitHub Pages project's assets
+  // that share this origin (e.g. other repos under <user>.github.io).
+  const scope = new URL(self.registration.scope);
+  if (url.origin === scope.origin && url.pathname.startsWith(scope.pathname)) {
     event.respondWith(cacheFirst(req, SHELL_CACHE));
     return;
   }

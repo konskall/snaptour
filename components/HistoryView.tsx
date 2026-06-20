@@ -11,6 +11,7 @@ interface HistoryViewProps {
   onSelect: (item: HistoryItem) => void;
   onDelete: (id: string) => void;
   onToggleFavorite: (item: HistoryItem) => void;
+  langCode?: string;
   t: Translation;
 }
 
@@ -54,7 +55,9 @@ const HistoryThumbnail = ({ thumbnail, alt, info }: { thumbnail: string, alt: st
   );
 };
 
-export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClear, onSelect, onDelete, onToggleFavorite, t }) => {
+export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClear, onSelect, onDelete, onToggleFavorite, langCode = 'en', t }) => {
+  // Format dates in the app's selected language, not the OS locale (zh → zh-Hans for BCP 47).
+  const dateLocale = langCode === 'zh' ? 'zh-Hans' : langCode;
   // Pending destructive action awaiting confirmation in the modal.
   const [confirm, setConfirm] = useState<{ kind: 'all' } | { kind: 'item'; item: HistoryItem } | null>(null);
   const [sharedId, setSharedId] = useState<string | null>(null);
@@ -176,7 +179,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
               value={country}
               onChange={(e) => setCountry(e.target.value)}
               aria-label={t.filterByCountry}
-              className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-full px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 max-w-[35vw]"
+              className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-full px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 max-w-[30vw]"
             >
               <option value="">{t.filterAll}</option>
               {countries.map(c => <option key={c} value={c}>{c}</option>)}
@@ -187,7 +190,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
               value={type}
               onChange={(e) => setType(e.target.value)}
               aria-label={t.filterByType}
-              className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-full px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 max-w-[35vw]"
+              className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-full px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 max-w-[30vw]"
             >
               <option value="">{t.filterAll}</option>
               {types.map(c => <option key={c} value={c}>{c}</option>)}
@@ -214,7 +217,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
               <button
                 type="button"
                 onClick={() => onSelect(item)}
-                aria-label={`${item.landmarkName}, ${new Date(item.timestamp).toLocaleDateString()}`}
+                aria-label={`${item.landmarkName}, ${new Date(item.timestamp).toLocaleDateString(dateLocale)}`}
                 className="w-full text-left bg-slate-800/50 border border-slate-700 rounded-2xl overflow-hidden flex flex-col sm:flex-row hover:bg-slate-800 transition-colors group cursor-pointer active:scale-[0.99] transition-transform"
               >
                 {/* Image Container */}
@@ -226,7 +229,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ items, onClose, onClea
                     <h3 className="text-xl font-bold text-white truncate w-full group-hover:text-indigo-400 transition-colors">{item.landmarkName}</h3>
                     <div className="flex-shrink-0 flex items-center text-xs text-slate-400 bg-slate-900/80 px-2 py-1 rounded-full whitespace-nowrap">
                       <Calendar size={12} className="mr-1" />
-                      {new Date(item.timestamp).toLocaleDateString()}, {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(item.timestamp).toLocaleDateString(dateLocale)}, {new Date(item.timestamp).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
                   {/* country / type chips when available */}

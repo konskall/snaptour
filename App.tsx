@@ -9,7 +9,7 @@ import { ChatView } from './components/ChatView';
 import { NearbyLandmarks } from './components/NearbyLandmarks';
 import { PassportView } from './components/PassportView';
 import { Toast, type ToastType } from './components/Toast';
-import { identifyLandmarkFromImage, getLandmarkDetails, generateNarrationAudio, getLandmarkInfo, getNearbyLandmarks } from './services/geminiService';
+import { identifyLandmarkFromImage, getLandmarkDetails, generateNarrationAudio, getLandmarkInfo, getNearbyLandmarks, prefetchSdk } from './services/geminiService';
 import { getDeviceLocation, getExifGps } from './services/locationUtils';
 import { detectInAppBrowser, type InAppInfo } from './services/browserUtils';
 import { saveHistoryItem, subscribeHistory, createThumbnail, createScaledImage, clearHistory, deleteHistoryItem, migrateLocalHistory, setFavorite, clearCache } from './services/storageService';
@@ -169,6 +169,16 @@ const App: React.FC = () => {
     setInAppInfo(detectInAppBrowser());
   }, []);
 
+  // Warm the heavy Gemini SDK chunk while the browser is idle, so the first scan doesn't
+  // wait on the network fetch+parse. Best-effort; falls back to a short timeout where
+  // requestIdleCallback is unavailable (Safari/iOS).
+  useEffect(() => {
+    const ric = (window as any).requestIdleCallback as undefined | ((cb: () => void) => number);
+    if (ric) { const id = ric(() => prefetchSdk()); return () => (window as any).cancelIdleCallback?.(id); }
+    const tid = window.setTimeout(prefetchSdk, 2500);
+    return () => window.clearTimeout(tid);
+  }, []);
+
   // Subscribe to Firebase auth state (handles session persistence + redirect return)
   const historyUnsubRef = useRef<null | (() => void)>(null);
   useEffect(() => {
@@ -189,7 +199,7 @@ const App: React.FC = () => {
       if (fbUser && !fbUser.isAnonymous) {
         const mapped: User = {
           uid: fbUser.uid,
-          name: fbUser.displayName || 'Traveler',
+          name: fbUser.displayName || t.defaultUserName,
           email: fbUser.email || '',
           picture: fbUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(fbUser.displayName || 'T')}&background=6366f1&color=fff`,
         };
@@ -273,6 +283,9 @@ const App: React.FC = () => {
     try { if (auth) await signOut(auth); } catch (e) { console.error('Sign-out failed', e); }
     // Drop the on-device history cache (PII) so it doesn't linger on a shared device.
     if (uid) clearCache(uid);
+    // Also drop the persisted view (it may hold the last result + photo) so it can't be
+    // re-hydrated into another user's session on a shared device.
+    try { sessionStorage.removeItem(VIEW_KEY); } catch { /* storage unavailable */ }
     // onAuthStateChanged clears user + history; reset the view if needed
     if (state === AppState.VIEWING_HISTORY) setState(AppState.IDLE);
   };
@@ -551,7 +564,11 @@ const App: React.FC = () => {
         const lat = scanCoords?.lat ?? meta?.lat ?? undefined;
         const lng = scanCoords?.lng ?? meta?.lng ?? undefined;
         const historyItem: HistoryItem = {
-           id: Date.now().toString(),
+           // Collision-proof id: two scans finishing in the same millisecond must not share
+           // a Firestore doc id. Prefer randomUUID; fall back to time+random where unavailable.
+           id: (typeof crypto !== 'undefined' && crypto.randomUUID)
+             ? crypto.randomUUID()
+             : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
            timestamp: Date.now(),
            landmarkName: landmarkName,
            summary: detailedInfo.substring(0, 100) + "...",
@@ -614,18 +631,25 @@ const App: React.FC = () => {
     setIsLangMenuOpen(false);
   };
 
-  const backgroundStyle = selectedImage ? {
+  // Memoized so an unrelated re-render (toast, menu toggle, audio state) doesn't recreate
+  // the object and re-trigger the root element's background style recalculation.
+  const backgroundStyle = useMemo(() => selectedImage ? {
     backgroundImage: `url(${selectedImage})`,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
-  } : {};
+  } : {}, [selectedImage]);
 
   // Find current language object
   const currentLang = LANGUAGES.find(l => l.code === langCode);
 
   return (
-    <div className="relative w-full overflow-hidden bg-slate-900 text-white" style={{ ...backgroundStyle, height: 'var(--app-height, 100vh)' }}>
+    <div className="relative w-full overflow-hidden bg-slate-900 text-white" aria-busy={state === AppState.ANALYZING_IMAGE || state === AppState.FETCHING_DETAILS} style={{ ...backgroundStyle, height: 'var(--app-height, 100vh)' }}>
       {selectedImage && <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-all duration-1000" />}
+
+      {/* Screen-reader announcement for async loading states (visually hidden). */}
+      <div className="sr-only" role="status" aria-live="polite">
+        {state === AppState.ANALYZING_IMAGE ? t.analyzing : state === AppState.FETCHING_DETAILS ? t.fetching : ''}
+      </div>
 
       {/* In-app toast (replaces native alert) */}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} closeLabel={t.close} />}
@@ -715,7 +739,7 @@ const App: React.FC = () => {
                 />
               )}
               {/* Show only Name, not Flag emoji since we use image now */}
-              <span className="text-sm font-medium hidden sm:inline">
+              <span className="text-sm font-medium hidden sm:inline [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">
                 {currentLang?.name || 'English'}
               </span>
             </button>
@@ -726,6 +750,7 @@ const App: React.FC = () => {
                   <button
                     key={lang.code}
                     onClick={() => handleLanguageChange(lang.code)}
+                    aria-current={langCode === lang.code ? 'true' : undefined}
                     className={`w-full text-left px-4 py-3 text-sm hover:bg-slate-700 transition-colors flex items-center justify-between ${langCode === lang.code ? 'bg-slate-700/50 text-indigo-400' : 'text-slate-200'}`}
                   >
                     <div className="flex items-center">
@@ -734,6 +759,7 @@ const App: React.FC = () => {
                         alt={lang.name}
                         width={22}
                         height={22}
+                        loading="lazy"
                         decoding="async"
                         className="w-[22px] h-[22px] rounded-full ring-1 ring-white/10 mr-3"
                       />
@@ -869,6 +895,7 @@ const App: React.FC = () => {
             onSelect={handleHistorySelect}
             onDelete={handleDeleteHistoryItem}
             onToggleFavorite={handleToggleFavorite}
+            langCode={langCode}
             t={t}
           />
         )}

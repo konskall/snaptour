@@ -17,5 +17,8 @@
   ],
   "theme_color": "#0f172a",
   "background_color": "#0f172a",
-  "display": "standalone"
+  "display": "standalone",
+  "start_url": "https://konskall.github.io/snaptour/",
+  "scope": "https://konskall.github.io/snaptour/",
+  "categories": ["travel", "utilities"]
 }

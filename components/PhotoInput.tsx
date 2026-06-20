@@ -100,7 +100,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, onNearMe,
             />
             <label 
               htmlFor="cameraInput"
-              className="sheen w-full cursor-pointer flex items-center justify-center gap-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg shadow-indigo-500/30 border border-indigo-400/50"
+              className="sheen w-full cursor-pointer flex items-center justify-center gap-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 active:scale-95 transform hover:scale-[1.02] shadow-lg shadow-indigo-500/30 border border-indigo-400/50"
             >
               <Camera size={20} />
               <span>{t.cameraBtn}</span>
@@ -113,7 +113,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, onNearMe,
           <div className="relative">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className={`w-full group/btn flex items-center justify-center gap-3 font-semibold py-4 px-6 rounded-xl transition-all duration-300 ${
+              className={`w-full group/btn flex items-center justify-center gap-3 font-semibold py-4 px-6 rounded-xl transition-all duration-300 active:scale-95 ${
                 isCoarsePointer
                   ? 'bg-slate-700/80 hover:bg-slate-600/80 text-slate-200 border border-indigo-500/30 hover:border-indigo-500/50'
                   : 'sheen bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-500/30 border border-indigo-400/50 transform hover:scale-[1.02]'
@@ -142,7 +142,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({ onImageSelect, onNearMe,
           {/* "Near me now" — discover landmarks around the user without a photo */}
           <button
             onClick={onNearMe}
-            className="w-full group/near flex items-center justify-center gap-3 bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-200 font-semibold py-4 px-6 rounded-xl transition-all duration-300 border border-emerald-500/30 hover:border-emerald-500/50"
+            className="w-full group/near flex items-center justify-center gap-3 bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-200 font-semibold py-4 px-6 rounded-xl transition-all duration-300 active:scale-95 border border-emerald-500/30 hover:border-emerald-500/50"
           >
             <LocateFixed size={20} className="text-emerald-400 group-hover/near:scale-110 transition-transform" />
             <span>{t.nearMeBtn}</span>

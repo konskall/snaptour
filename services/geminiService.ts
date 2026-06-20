@@ -17,6 +17,9 @@ const loadSdk = (): Promise<GenAIModule> => {
   return sdkPromise;
 };
 
+// Warm the SDK chunk ahead of the first AI call (call during browser idle time).
+export const prefetchSdk = (): void => { loadSdk().catch(() => {}); };
+
 let aiInstance: GoogleGenAI | null = null;
 
 const getAI = async (): Promise<GoogleGenAI> => {

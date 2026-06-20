@@ -518,7 +518,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
               <button
                 onClick={handleNativePlay}
                 aria-label={isPlaying && activeEngine === 'native' ? t.pause : t.listen}
-                className="flex-1 min-w-0 h-12 rounded-full flex items-center justify-center gap-2 font-semibold shadow-lg transition-all hover:scale-[1.02] bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/30"
+                className="flex-1 min-w-0 h-12 rounded-full flex items-center justify-center gap-2 font-semibold shadow-lg transition-all hover:scale-[1.02] active:scale-95 bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/30"
               >
                 {isPlaying && activeEngine === 'native'
                   ? <Pause size={20} fill="currentColor" className="shrink-0" />
@@ -561,6 +561,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
                 onClick={() => setShowVoiceMenu(v => !v)}
                 aria-label={t.voiceLabel}
                 aria-expanded={showVoiceMenu}
+                aria-controls="voice-settings-panel"
                 title={t.voiceLabel}
                 className={`flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center border transition-all hover:scale-105 ${
                   showVoiceMenu
@@ -575,7 +576,7 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
           {/* Voice & speed panel — collapsible, applies to the standard (native) voice.
               mt-3 keeps clear separation from the controls row (it was flush before). */}
           {showVoiceMenu && (
-            <div className="mt-3 mb-2 rounded-xl border border-slate-700 bg-slate-800/80 p-3 space-y-3 animate-fade-in shadow-lg">
+            <div id="voice-settings-panel" className="mt-3 mb-2 rounded-xl border border-slate-700 bg-slate-800/80 p-3 space-y-3 animate-fade-in shadow-lg">
               <div className="flex items-center gap-2 text-slate-300">
                 <SlidersHorizontal size={13} className="text-indigo-400" />
                 <span className="text-xs font-semibold tracking-wide">{t.voiceLabel}</span>
@@ -657,7 +658,9 @@ export const TourCard: React.FC<TourCardProps> = ({ result, onReset, onChat, onG
             if (m.openingHours) rows.push({ icon: <Clock size={15} />, label: t.infoHours, value: m.openingHours });
             if (m.ticket) rows.push({ icon: <Ticket size={15} />, label: t.infoTicket, value: m.ticket });
             if (m.bestTime) rows.push({ icon: <Sun size={15} />, label: t.infoBestTime, value: m.bestTime });
-            if (m.website) {
+            // Only render http(s) links — never a javascript:/data: URL that could slip in
+            // from an untrusted grounding source.
+            if (m.website && /^https?:\/\//i.test(m.website)) {
               let host = m.website;
               try { host = new URL(m.website).hostname.replace(/^www\./, ''); } catch { /* keep raw */ }
               rows.push({

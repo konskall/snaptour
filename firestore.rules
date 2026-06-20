@@ -28,5 +28,11 @@ service cloud.firestore {
         && (!('lng' in request.resource.data) || request.resource.data.lng is number)
         && (!('favorite' in request.resource.data) || request.resource.data.favorite is bool);
     }
+
+    // Deny-by-default: any collection not explicitly matched above is closed. Every new
+    // collection MUST get its own explicit rule before deployment.
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }
