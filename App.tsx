@@ -78,6 +78,10 @@ const App: React.FC = () => {
   // The overlay header floats above content; measure its real height (incl.
   // notch safe-area + any setup banner) so every view can offset clear of it.
   const headerRef = useRef<HTMLElement>(null);
+  // Monotonic id for the in-flight scan/details request. Each new processTour/fetchDetails
+  // bumps it; an async path bails after its awaits if it's no longer the latest, so two
+  // quick scans can't have the slower one clobber the newer result (or double-save).
+  const latestRequestId = useRef(0);
 
   const t = translations[langCode] || translations['en'];
   const currentLangName = LANGUAGES.find(l => l.code === langCode)?.name || 'English';
@@ -362,12 +366,14 @@ const App: React.FC = () => {
         setState(AppState.ERROR);
         return;
       }
-      // Downscaled thumbnail for the on-screen background.
-      const thumb = await createThumbnail(base64Data);
+      // Decode the on-screen thumbnail and the ~1024px model upload from the same source
+      // concurrently (instead of back-to-back) so the two heavy decode/encode passes
+      // overlap; show the background as soon as the thumbnail is ready.
+      const thumbP = createThumbnail(base64Data);
+      const scaledP = createScaledImage(base64Data, 1024);
+      const thumb = await thumbP;
       setSelectedImage(`data:image/jpeg;base64,${thumb}`);
-      // Send a ~1024px version to the model: large phone photos upload slowly and the
-      // vision model downsamples anyway, so this is much faster with no accuracy loss.
-      const scaled = await createScaledImage(base64Data, 1024);
+      const scaled = await scaledP;
       processTour(scaled.base64, scaled.mimeType, base64Data, source, file);
     };
     reader.onerror = () => {
@@ -378,6 +384,7 @@ const App: React.FC = () => {
   };
 
   const processTour = async (base64Image: string, mimeType: string, fullImageData: string, source: 'camera' | 'upload' = 'upload', file?: File) => {
+    const reqId = ++latestRequestId.current;
     try {
       setState(AppState.ANALYZING_IMAGE);
       // Location hint to disambiguate the landmark: the photo's own EXIF GPS first
@@ -390,6 +397,7 @@ const App: React.FC = () => {
       } catch { coords = undefined; }
       setScanUsedLocation(!!coords);
       const idResult = await identifyLandmarkFromImage(base64Image, mimeType, currentLangName, coords);
+      if (reqId !== latestRequestId.current) return; // a newer scan superseded this one
       setIdentificationResult(idResult);
       const CONFIDENCE_THRESHOLD = 0.8;
       // Require a non-empty name too: the model returns an empty name for "not a
@@ -417,6 +425,7 @@ const App: React.FC = () => {
     scanCoords?: { lat: number; lng: number },
     opts?: { save?: boolean; deepLink?: boolean },
   ) => {
+    const reqId = ++latestRequestId.current;
     try {
       setState(AppState.FETCHING_DETAILS);
 
@@ -438,6 +447,7 @@ const App: React.FC = () => {
         getLandmarkInfo(landmarkName, currentLangName).catch(() => null),
         needsImage ? fetchLandmarkImage(landmarkName).catch(() => null) : Promise.resolve(null),
       ]);
+      if (reqId !== latestRequestId.current) return; // a newer request superseded this one — don't commit or save
       const meta: LandmarkMeta | undefined = info || undefined;
       // Use the fetched image as the result-view background when we had no photo.
       if (wikiImage) setSelectedImage(wikiImage);
@@ -598,7 +608,6 @@ const App: React.FC = () => {
             <button
               ref={langBtnRef}
               onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
-              aria-haspopup="menu"
               aria-expanded={isLangMenuOpen}
               aria-controls="lang-menu"
               className="flex items-center gap-2 bg-black/20 backdrop-blur-md px-3 py-2 rounded-full border border-white/10 hover:bg-white/10 transition-colors shadow-lg"
@@ -620,11 +629,10 @@ const App: React.FC = () => {
             </button>
 
             {isLangMenuOpen && (
-              <div id="lang-menu" role="menu" className="absolute right-0 top-full mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50 animate-fade-in">
+              <div id="lang-menu" className="absolute right-0 top-full mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50 animate-fade-in">
                 {LANGUAGES.map((lang) => (
                   <button
                     key={lang.code}
-                    role="menuitem"
                     onClick={() => handleLanguageChange(lang.code)}
                     className={`w-full text-left px-4 py-3 text-sm hover:bg-slate-700 transition-colors flex items-center justify-between ${langCode === lang.code ? 'bg-slate-700/50 text-indigo-400' : 'text-slate-200'}`}
                   >
@@ -669,7 +677,6 @@ const App: React.FC = () => {
                  <button
                    ref={userBtnRef}
                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                   aria-haspopup="menu"
                    aria-expanded={isUserMenuOpen}
                    aria-controls="user-menu"
                    className="flex items-center gap-2 bg-black/20 backdrop-blur-md px-3 py-2 rounded-full border border-white/10 hover:bg-white/10 transition-colors shadow-lg"
@@ -679,13 +686,12 @@ const App: React.FC = () => {
                  </button>
 
                  {isUserMenuOpen && (
-                   <div id="user-menu" role="menu" className="absolute right-0 top-full mt-2 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50 animate-fade-in">
+                   <div id="user-menu" className="absolute right-0 top-full mt-2 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50 animate-fade-in">
                      <div className="px-4 py-3 border-b border-slate-700">
                        <p className="text-sm font-semibold text-white">{user.name}</p>
                        <p className="text-xs text-slate-400 truncate">{user.email}</p>
                      </div>
                      <button
-                       role="menuitem"
                        onClick={() => {
                          setState(AppState.VIEWING_HISTORY);
                          setIsUserMenuOpen(false);
@@ -696,7 +702,6 @@ const App: React.FC = () => {
                        {t.history}
                      </button>
                      <button
-                       role="menuitem"
                        onClick={() => {
                          setState(AppState.VIEWING_MAP);
                          setIsUserMenuOpen(false);
@@ -707,7 +712,6 @@ const App: React.FC = () => {
                        {t.mapMenu}
                      </button>
                      <button
-                       role="menuitem"
                        onClick={() => {
                          setState(AppState.VIEWING_PASSPORT);
                          setIsUserMenuOpen(false);
@@ -718,7 +722,6 @@ const App: React.FC = () => {
                        {t.passportMenu}
                      </button>
                      <button
-                       role="menuitem"
                        onClick={handleLogout}
                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-700 transition-colors flex items-center gap-3 text-red-300"
                      >

@@ -9,8 +9,14 @@
    - Everything else (Gemini, Firebase, Google Maps, googleapis): straight to the network,
      untouched. Only GET is ever intercepted, so API writes are never affected. */
 
-const SHELL_CACHE = 'snaptour-shell-v1';
-const RUNTIME_CACHE = 'snaptour-runtime-v1';
+// __SW_VERSION__ is replaced at build time (vite.config.ts) with a hash of the build's
+// asset filenames, so each deploy gets fresh cache names. activate() then purges every
+// cache that doesn't match the current names → no unbounded growth, and stale stable-named
+// assets (icons/manifest) are evicted on deploy. In dev (no build) the literal placeholder
+// is used, which is fine (a single static version).
+const SW_VERSION = '__SW_VERSION__';
+const SHELL_CACHE = 'snaptour-shell-' + SW_VERSION;
+const RUNTIME_CACHE = 'snaptour-runtime-' + SW_VERSION;
 const BASE = self.registration.scope; // e.g. https://konskall.github.io/snaptour/
 const SHELL_URL = BASE;
 

@@ -1,5 +1,30 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+// Stamp public/sw.js with a per-build version (a hash of the emitted asset filenames) so
+// every deploy gets fresh service-worker cache names. The SW's activate() then purges all
+// non-matching caches — preventing unbounded cache growth and evicting stale stable-named
+// assets (icons/manifest). Build-only; in dev the literal placeholder stays.
+function swVersion(): Plugin {
+  let version = 'dev';
+  return {
+    name: 'snaptour-sw-version',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      const names = Object.keys(bundle).sort().join('|');
+      version = createHash('sha256').update(names).digest('hex').slice(0, 8);
+    },
+    closeBundle() {
+      const swPath = resolve(process.cwd(), 'dist/sw.js');
+      if (existsSync(swPath)) {
+        writeFileSync(swPath, readFileSync(swPath, 'utf8').replace(/__SW_VERSION__/g, version));
+      }
+    },
+  };
+}
 
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
@@ -7,7 +32,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   
   return {
-    plugins: [react()],
+    plugins: [react(), swVersion()],
     // This defines process.env variables so they work in the browser environment
     define: {
       'process.env.API_KEY': JSON.stringify(env.API_KEY || ""),
