@@ -36,13 +36,11 @@ npx wrangler deploy
 - `ALLOWED_ORIGINS` — comma-separated origins allowed by CORS (default `https://konskall.github.io`).
   Add `http://localhost:3000` while developing if needed.
 
-## Turn it on in the app
+## Connect the app
 Set the build variable **`GEMINI_PROXY_URL`** to the Worker URL (GitHub → Settings → Secrets and
-variables → Actions → **Variables**), then redeploy the site. The app auto-switches to the proxy.
-
-Verify a scan works end-to-end, **then** delete the `API_KEY` secret from GitHub Actions — the
-key is no longer needed in the bundle. (Until `GEMINI_PROXY_URL` is set, the app keeps using the
-old direct-key path, so nothing breaks.)
+variables → Actions → **Variables**), then redeploy the site. The app sends every Gemini call
+through the proxy — there is no client-side key path, so without this variable AI features
+are disabled (the app shows a "Setup Required" banner).
 
 ## Notes
 - `compatibility_date` is set in `wrangler.toml`; `jose` runs on the Workers runtime via WebCrypto

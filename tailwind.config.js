@@ -4,6 +4,8 @@ export default {
     './index.html',
     './*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
+    // placeholderUtils returns gradient class names, so services must be scanned too.
+    './services/**/*.{ts,tsx}',
   ],
   theme: {
     extend: {

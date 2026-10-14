@@ -7,16 +7,14 @@
 export interface InAppInfo {
   inApp: boolean;   // true if running inside a known social in-app browser
   name: string;     // friendly app name (e.g. "Instagram"), "" when not in-app
-  isIOS: boolean;
   isAndroid: boolean;
 }
 
 export function detectInAppBrowser(): InAppInfo {
   if (typeof navigator === 'undefined') {
-    return { inApp: false, name: '', isIOS: false, isAndroid: false };
+    return { inApp: false, name: '', isAndroid: false };
   }
   const ua = navigator.userAgent || (navigator as any).vendor || (window as any).opera || '';
-  const isIOS = /iPhone|iPad|iPod/i.test(ua);
   const isAndroid = /Android/i.test(ua);
 
   // Order matters a little (Messenger UA also contains "FB*"), so check the more
@@ -34,5 +32,5 @@ export function detectInAppBrowser(): InAppInfo {
   else if (/MicroMessenger/i.test(ua)) name = 'WeChat';
   else if (/\bLine\//i.test(ua)) name = 'LINE';
 
-  return { inApp: name !== '', name, isIOS, isAndroid };
+  return { inApp: name !== '', name, isAndroid };
 }

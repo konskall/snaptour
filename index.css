@@ -62,17 +62,6 @@ body {
   z-index: 20;
 }
 
-.animate-shimmer {
-  animation: shimmer 2s linear infinite;
-  background: linear-gradient(to right, #1e293b 0%, #334155 20%, #1e293b 40%, #1e293b 100%);
-  background-size: 1000px 100%;
-}
-
-@keyframes shimmer {
-  0% { background-position: -1000px 0; }
-  100% { background-position: 1000px 0; }
-}
-
 /* Accessible focus indicator */
 :focus-visible {
   outline: 2px solid #818cf8;
@@ -84,7 +73,7 @@ body {
 
 /* Respect reduced-motion preference */
 @media (prefers-reduced-motion: reduce) {
-  .scan-line, .animate-shimmer {
+  .scan-line {
     animation: none;
   }
   *, *::before, *::after {

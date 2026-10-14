@@ -3,8 +3,8 @@ import { decodeBase64, decodeAudioData } from "./audioUtils";
 import { getProxyAuthToken } from "./firebase";
 import { GroundingChunk, LandmarkIdentification, ChatMessage, NearbyPlace, LandmarkMeta } from "../types";
 
-// When set at build time, every Gemini call is routed through our Cloudflare Worker proxy,
-// which holds the real API key server-side. Empty → direct-key path (back-compat).
+// Every Gemini call is routed through our Cloudflare Worker proxy (URL set at build time),
+// which holds the real API key server-side — the key never ships in the browser bundle.
 const PROXY_URL = process.env.GEMINI_PROXY_URL || "";
 
 // Lazily load the heavy @google/genai SDK so Vite code-splits it into its own
@@ -20,43 +20,27 @@ const loadSdk = (): Promise<GenAIModule> => {
 // Warm the SDK chunk ahead of the first AI call (call during browser idle time).
 export const prefetchSdk = (): void => { loadSdk().catch(() => {}); };
 
-let aiInstance: GoogleGenAI | null = null;
-
+// The real key lives in the Cloudflare Worker. We point the SDK at the Worker (baseUrl) and
+// attach a Firebase ID token. A fresh GoogleGenAI per call (not cached) means the
+// Authorization header always carries a current token — Firebase auto-refreshes it near its
+// ~1h expiry inside getIdToken(), so it never goes stale between calls.
 const getAI = async (): Promise<GoogleGenAI> => {
+  // Fail fast (callers already handle errors) instead of firing requests that can't succeed.
+  if (!PROXY_URL) throw new Error('Gemini proxy not configured: set GEMINI_PROXY_URL at build time.');
   const { GoogleGenAI } = await loadSdk();
-
-  // Proxy mode: the real key lives in the Cloudflare Worker. We point the SDK at the Worker
-  // (baseUrl) and attach a Firebase ID token. A fresh GoogleGenAI per call (not cached) means
-  // the Authorization header always carries a current token — Firebase auto-refreshes it near
-  // its ~1h expiry inside getIdToken(), so it never goes stale between calls.
-  if (PROXY_URL) {
-    const token = await getProxyAuthToken();
-    if (!token) {
-      // No token → the Worker will reject with 401. Almost always a setup issue: enable
-      // Anonymous sign-in in the Firebase console (Auth → Sign-in method → Anonymous).
-      console.error('Proxy mode: could not obtain a Firebase ID token; Gemini calls will be rejected (401). Is Anonymous Auth enabled in Firebase?');
-    }
-    return new GoogleGenAI({
-      apiKey: 'proxied', // placeholder; ignored by the Worker, which uses the real key
-      httpOptions: {
-        baseUrl: PROXY_URL,
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      },
-    });
+  const token = await getProxyAuthToken();
+  if (!token) {
+    // No token → the Worker will reject with 401. Almost always a setup issue: enable
+    // Anonymous sign-in in the Firebase console (Auth → Sign-in method → Anonymous).
+    console.error('Proxy mode: could not obtain a Firebase ID token; Gemini calls will be rejected (401). Is Anonymous Auth enabled in Firebase?');
   }
-
-  // Direct-key path (used until GEMINI_PROXY_URL is set) — key from the build env.
-  if (!aiInstance) {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      console.error("API Key is missing. Please check your .env file or GitHub Secrets.");
-      // Initialize with empty string to allow UI to load, but calls will fail gracefully
-      aiInstance = new GoogleGenAI({ apiKey: '' });
-    } else {
-      aiInstance = new GoogleGenAI({ apiKey: apiKey });
-    }
-  }
-  return aiInstance;
+  return new GoogleGenAI({
+    apiKey: 'proxied', // placeholder; ignored by the Worker, which uses the real key
+    httpOptions: {
+      baseUrl: PROXY_URL,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    },
+  });
 };
 
 // Retry helper for transient server errors (503 Service Unavailable / 500 /
@@ -111,7 +95,7 @@ async function generateContentWithGroundingFallback(ai: GoogleGenAI, params: any
   }
 }
 
-// 1. Identify the landmark using gemini-2.5-flash with Google Search Grounding for ACCURACY
+// 1. Identify the landmark (GROUNDED_MODEL) with Google Search Grounding for ACCURACY
 export async function identifyLandmarkFromImage(base64Image: string, mimeType: string, language: string, coords?: { lat: number; lng: number }): Promise<LandmarkIdentification> {
   return retryOperation(async () => {
     try {
@@ -180,7 +164,7 @@ export async function identifyLandmarkFromImage(base64Image: string, mimeType: s
   });
 }
 
-// 2. Get detailed history using gemini-2.5-flash with Google Search (Search Grounding)
+// 2. Get detailed history (GROUNDED_MODEL) with Google Search (Search Grounding)
 export async function getLandmarkDetails(landmarkName: string, language: string): Promise<{ text: string; sources: GroundingChunk[] }> {
   return retryOperation(async () => {
     try {

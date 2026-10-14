@@ -80,7 +80,7 @@ const App: React.FC = () => {
   const [nearbyError, setNearbyError] = useState(false); // API failure (vs genuinely none nearby)
   const [nearbyFallback, setNearbyFallback] = useState(false); // NEARBY shown as a fallback after a scan couldn't identify a landmark
   const [missingCreds, setMissingCreds] = useState<string[]>([]);
-  const [inAppInfo, setInAppInfo] = useState<InAppInfo>({ inApp: false, name: '', isIOS: false, isAndroid: false });
+  const [inAppInfo, setInAppInfo] = useState<InAppInfo>({ inApp: false, name: '', isAndroid: false });
   const isInAppBrowser = inAppInfo.inApp;
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const showInAppBanner = isInAppBrowser && !bannerDismissed;
@@ -172,8 +172,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const missing = [];
-    // In proxy mode the key lives in the Worker, so a client-side API_KEY isn't required.
-    if (!process.env.GEMINI_PROXY_URL && !process.env.API_KEY) missing.push("API_KEY");
+    // Gemini calls go through the Worker proxy (the key lives there, never in the bundle).
+    if (!process.env.GEMINI_PROXY_URL) missing.push("GEMINI_PROXY_URL");
     if (!isFirebaseConfigured()) missing.push("FIREBASE_*");
     setMissingCreds(missing);
   }, []);
@@ -715,7 +715,7 @@ const App: React.FC = () => {
              {/* Intentionally English-only: admin/deploy-time setup notice, never shown to end customers */}
              <span className="text-sm font-bold">
                Setup Required: Missing {missingCreds.join(" & ")}.
-               Check GitHub Settings &rarr; Secrets.
+               Check GitHub Settings &rarr; Secrets and variables.
              </span>
            </div>
            <button onClick={() => setMissingCreds([])} className="text-xs bg-red-800 hover:bg-red-700 px-2 py-1 rounded">{t.dismiss}</button>

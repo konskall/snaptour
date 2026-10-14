@@ -1,6 +1,6 @@
 import React from 'react';
 import { Translation } from '../types';
-import { Scan, Loader2 } from 'lucide-react';
+import { Scan } from 'lucide-react';
 
 interface ScanningViewProps {
   imageSrc: string | null;

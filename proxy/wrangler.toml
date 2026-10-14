@@ -11,11 +11,8 @@ ALLOWED_ORIGINS = "https://konskall.github.io"
 #   npx wrangler secret put GEMINI_KEY
 
 # Short-link store (Workers KV, free). Powers tiny share URLs (…/s/<code>) instead of a long
-# percent-encoded landmark name. SETUP (once):
-#   1) npx wrangler kv namespace create LINKS      # prints an id
-#   2) paste that id below and uncomment the 3 lines
-#   3) npx wrangler deploy
-# Until configured, the app automatically falls back to the long /s?l=<name> URL (no breakage).
+# percent-encoded landmark name. Created once with `npx wrangler kv namespace create LINKS`.
+# If this binding is ever removed, the app falls back to the long /s?l=<name> URL (no breakage).
 [[kv_namespaces]]
 binding = "LINKS"
 id = "7e84d540fbff4adaa96dc182bef58526"

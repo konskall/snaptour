@@ -122,19 +122,6 @@ export function clearCache(uid: string): void {
 // ---- Firestore ----
 const historyCol = (uid: string) => collection(db!, 'users', uid, 'history');
 
-export async function getHistory(uid: string): Promise<HistoryItem[]> {
-  if (!db) return readCache(uid);
-  try {
-    const snap = await getDocs(query(historyCol(uid), orderBy('timestamp', 'desc')));
-    const items = capItems(snap.docs.map(d => d.data() as HistoryItem));
-    writeCache(uid, items);
-    return items;
-  } catch (e) {
-    console.error('getHistory failed; using cache', e);
-    return readCache(uid);
-  }
-}
-
 // Real-time subscription to the user's history so changes on one device appear on
 // another without a manual refresh. Calls `cb` with the latest items on every change
 // and keeps the local cache warm. Returns an unsubscribe function. With no backend

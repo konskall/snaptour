@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sortByNewest, capItems, idsToEvict, MAX_HISTORY_ITEMS } from '../historyUtils';
+import { sortByNewest, capItems, MAX_HISTORY_ITEMS } from '../historyUtils';
 import type { HistoryItem } from '../../types';
 
 const mk = (id: string, ts: number): HistoryItem => ({
@@ -24,11 +24,5 @@ describe('historyUtils', () => {
     expect(out).toHaveLength(50);
     expect(out[0].id).toBe('id54'); // newest first
     expect(out[out.length - 1].id).toBe('id5');
-  });
-
-  it('idsToEvict returns ids beyond the cap (oldest), empty when within cap', () => {
-    expect(idsToEvict(Array.from({ length: 10 }, (_, i) => mk(`x${i}`, i)))).toEqual([]);
-    const evict = idsToEvict(Array.from({ length: 52 }, (_, i) => mk(`x${i}`, i)));
-    expect(evict.sort()).toEqual(['x0', 'x1'].sort()); // two oldest
   });
 });

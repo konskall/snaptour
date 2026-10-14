@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["main", "master"]
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
@@ -34,9 +34,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          API_KEY: ${{ secrets.API_KEY }}
-          # When set (repo Variable), the app routes Gemini calls through the Worker proxy and
-          # the API_KEY above is no longer needed in the bundle. Empty → direct-key path.
+          # Repo Variable: the Cloudflare Worker that proxies all Gemini calls (holds the key).
           GEMINI_PROXY_URL: ${{ vars.GEMINI_PROXY_URL }}
           FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
           FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}

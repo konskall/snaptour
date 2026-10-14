@@ -9,7 +9,3 @@ export function sortByNewest(items: HistoryItem[]): HistoryItem[] {
 export function capItems(items: HistoryItem[]): HistoryItem[] {
   return sortByNewest(items).slice(0, MAX_HISTORY_ITEMS);
 }
-
-export function idsToEvict(items: HistoryItem[]): string[] {
-  return sortByNewest(items).slice(MAX_HISTORY_ITEMS).map(i => i.id);
-}

@@ -5,7 +5,7 @@ narration, a map, nearby places, and a chat guide — powered by Google Gemini.
 
 **🔗 Live:** https://konskall.github.io/snaptour/
 
-![SnapTour](https://konskall.github.io/snaptour/ogsnaptour.png?v=3)
+![SnapTour](https://konskall.github.io/snaptour/ogsnaptour.jpg?v=4)
 
 ---
 
@@ -53,7 +53,8 @@ downsamples anyway), so scans stay fast with no loss of accuracy.
 | UI | React 19 + TypeScript, Tailwind CSS 3 |
 | Build | Vite 8 (Rolldown), code‑split AI SDK |
 | AI | Google Gemini via `@google/genai` — see model map below |
-| Auth & data | Firebase Authentication (Google) + Cloud Firestore |
+| AI proxy | Cloudflare Worker ([`proxy/`](proxy/)) — holds the Gemini key, verifies Firebase ID tokens, serves share links |
+| Auth & data | Firebase Authentication (Google + Anonymous) + Cloud Firestore |
 | Testing | Vitest + jsdom |
 | Hosting | GitHub Pages (via GitHub Actions) |
 
@@ -72,8 +73,8 @@ downsamples anyway), so scans stay fast with no loss of accuracy.
 
 ### Prerequisites
 - Node.js 20+ (CI uses 24)
-- A **Gemini API key** — https://aistudio.google.com/apikey
-- A **Firebase project** with Authentication (Google provider) and Cloud Firestore enabled
+- A **Gemini API key** — https://aistudio.google.com/apikey (stored only in the Worker, see [`proxy/README.md`](proxy/README.md))
+- A **Firebase project** with Authentication (Google + Anonymous providers) and Cloud Firestore enabled
 
 ### Install & run
 
@@ -94,7 +95,7 @@ Copy `.env.example` to `.env` and fill in:
 
 | Variable | Where to find it |
 |----------|------------------|
-| `API_KEY` | Google AI Studio (Gemini API key) |
+| `GEMINI_PROXY_URL` | URL of your deployed Worker, e.g. `https://snaptour-proxy.<you>.workers.dev` |
 | `FIREBASE_API_KEY` | Firebase → Project settings → Your apps → Web app |
 | `FIREBASE_AUTH_DOMAIN` | " |
 | `FIREBASE_PROJECT_ID` | " |
@@ -103,10 +104,11 @@ Copy `.env.example` to `.env` and fill in:
 | `FIREBASE_APP_ID` | " |
 
 > The Firebase Web config values are public by design. Keep secrets out of source
-> control — `.env` is git‑ignored and CI reads everything from **GitHub Secrets**.
+> control — `.env` is git‑ignored and CI reads everything from **GitHub Secrets / Variables**.
+> For AI calls from `localhost`, add `http://localhost:3000` to the Worker's `ALLOWED_ORIGINS`.
 
 ### Firebase setup
-1. **Authentication** → enable the **Google** sign‑in provider.
+1. **Authentication** → enable the **Google** and **Anonymous** sign‑in providers (anonymous sign‑in gives every visitor the token the Gemini proxy requires).
 2. **Firestore** → create the database; security rules live in [`firestore.rules`](firestore.rules) (each user can only read/write `users/{uid}/history/**`).
 3. **Authentication → Settings → Authorized domains** → add `konskall.github.io` (and `localhost` for dev).
 
@@ -130,17 +132,25 @@ Copy `.env.example` to `.env` and fill in:
 App.tsx                 # App shell, state machine, header, auth + deep-link (?l=) wiring
 index.tsx / index.html  # Entry + document (viewport / PWA / Open Graph metas)
 index.css               # Tailwind layers + safe-area / animation helpers
-components/             # PhotoInput, ScanningView, LandmarkSelector,
-                        # SkeletonCard, TourCard, ChatView, HistoryView, Logo
+components/             # PhotoInput, ScanningView, LandmarkSelector, SkeletonCard,
+                        # TourCard, ChatView, HistoryView, NearbyLandmarks, PassportView,
+                        # VisitedMap (Leaflet, lazy-loaded), ConfirmDialog, Toast, Logo
 services/
-  geminiService.ts      # All Gemini calls (identify / details / chat / nearby / TTS)
+  geminiService.ts      # All Gemini calls via the proxy (identify / details / chat / nearby / TTS)
+  firebase.ts           # Firebase init + anonymous token for the proxy
+  storageService.ts     # Firestore-backed history (live sync), image scaling/thumbnails, local cache
+  historyUtils.ts       # History capping helpers (unit-tested)
+  geoUtils.ts           # Distance / bearing / passport aggregation (unit-tested)
   locationUtils.ts      # EXIF GPS reader + device geolocation (graceful fallbacks)
-  firebase.ts           # Firebase init + isFirebaseConfigured()
-  storageService.ts     # Firestore-backed history, image scaling/thumbnails, local cache
-  historyUtils.ts       # Capping / dedupe helpers (unit-tested)
+  shareCardUtils.ts     # Share URLs + short links via the Worker
+  wikimediaService.ts   # Wikipedia photo for entries without a user photo
+  browserUtils.ts       # In-app browser (Instagram/Facebook/…) detection
+  placeholderUtils.ts   # Gradient placeholders for photo-less entries
   audioUtils.ts         # PCM decode helpers for TTS
 hooks/useDialog.ts      # Accessible modal (focus trap / Escape / restore)
 translations.ts         # i18n strings for 7 languages
+public/sw.js            # Service worker (offline app shell)
+proxy/                  # Cloudflare Worker: Gemini proxy + share-link previews / short links
 firestore.rules         # Per-user Firestore security rules
 .github/workflows/      # GitHub Pages deploy
 ```
@@ -150,11 +160,15 @@ firestore.rules         # Per-user Firestore security rules
 ## 🚢 Deployment
 
 Pushing to `main` triggers [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml),
-which builds with the secrets below and publishes `dist/` to **GitHub Pages**.
+which builds with the values below and publishes `dist/` to **GitHub Pages**.
 
 Add these under **GitHub → Settings → Secrets and variables → Actions**:
-`API_KEY`, `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`,
-`FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_APP_ID`.
+- **Secrets:** `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`,
+  `FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_APP_ID`.
+- **Variables:** `GEMINI_PROXY_URL`.
+
+The Worker in [`proxy/`](proxy/) is deployed separately with `npx wrangler deploy`
+(see [`proxy/README.md`](proxy/README.md)).
 
 > If a build banner says **“Setup Required: Missing …”**, a secret is missing or empty.
 > GitHub Pages caches the HTML briefly — after a deploy you may need a hard refresh
@@ -169,9 +183,8 @@ Add these under **GitHub → Settings → Secrets and variables → Actions**:
   daily limits, and the TTS preview model is very limited (≈10 requests/day) — which is
   why the default voice is the browser's native voice. Enable billing on the key's Google
   Cloud project for production‑grade limits and full grounding.
-- **API key exposure**: the app calls Gemini directly from the browser, so the key is
-  present in the client bundle. For production, restrict the key (HTTP‑referrer + API
-  restrictions) or route calls through a server / Cloud Function proxy.
+- **API key**: the Gemini key never reaches the browser — every AI call goes through the
+  Cloudflare Worker, which accepts only requests carrying a valid Firebase ID token.
 
 ---
 
